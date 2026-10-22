@@ -189,11 +189,12 @@
         items.forEach(item => {
           const freshQty = state[item.id].fresh;
           const clearanceQty = state[item.id].clearance;
+          // 關鍵修正：無論是今日或昨日購買，計算贈品價格上限時皆以「品項原價 (freshPrice)」為準
           for (let i = 0; i < freshQty; i++) { 
             allPurchasedItems.push({ id: item.id, name: item.name, price: item.freshPrice }); 
           }
           for (let i = 0; i < clearanceQty; i++) { 
-            allPurchasedItems.push({ id: item.id, name: item.name, price: item.clearancePrice }); 
+            allPurchasedItems.push({ id: item.id, name: item.name, price: item.freshPrice }); 
           }
         });
 
@@ -208,13 +209,14 @@
           }
         }
 
-        if (selectedGifts.length !== giftCount) {
-          selectedGifts = [];
-          for (let i = 0; i < giftCount; i++) {
+        if (selectedGifts.length < giftCount) {
+          for (let i = selectedGifts.length; i < giftCount; i++) {
             let maxP = groupMaxPrices[i];
             let defaultItem = items.find(it => it.freshPrice <= maxP) || items[0];
             selectedGifts.push(defaultItem.id);
           }
+        } else if (selectedGifts.length > giftCount) {
+          selectedGifts = selectedGifts.slice(0, giftCount);
         }
 
         giftSelects.innerHTML = '';
