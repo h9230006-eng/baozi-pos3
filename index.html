@@ -1,1 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>包子饅頭 POS 收銀機</title>
+  <style>
+    :root {
+      --primary-color: #8b4513;
+      --bg-color: #f5f5f7;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --fresh-color: #2e7d32;
+      --clearance-color: #e65100;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-color); padding-bottom: 140px; user-select: none; }
+    header { background-color: var(--primary-color); color: white; text-align: center; padding: 10px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+    header h1 { font-size: 1.1rem; margin-bottom: 2px; }
+    .promo-banner { font-size: 0.78rem; background: rgba(255, 255, 255, 0.2); padding: 2px 6px; border-radius: 10px; display: inline-block; }
+    .container { max-width: 600px; margin: 0 auto; padding: 8px; }
+    
+    .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+    .item-card { background: var(--card-bg); border-radius: 10px; padding: 8px 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e0e0e0; }
+    
+    .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .item-name { font-size: 0.88rem; font-weight: bold; }
+    .item-subtotal { font-size: 0.82rem; font-weight: bold; color: #1a73e8; }
 
+    .card-selectors { display: flex; gap: 6px; align-items: center; }
+    .selector-col { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .selector-label { font-size: 0.75rem; font-weight: bold; text-align: center; }
+    .label-fresh { color: #2e7d32; }
+    .label-clearance { color: var(--clearance-color); }
+    select.qty-select { font-size: 0.85rem; padding: 3px; border-radius: 6px; border: 1px solid #ccc; background-color: #f8f9fa; text-align: center; font-weight: bold; width: 100%; }
+
+    .gift-container { background: #e8f5e9; border: 2px dashed #2e7d32; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+    .gift-title { color: #2e7d32; font-weight: bold; font-size: 0.9rem; margin-bottom: 6px; }
+    .gift-row { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+    .gift-row select { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #81c784; font-size: 0.85rem; background: white; font-weight: bold; color: #2e7d32; }
+
+    .summary-card { background: #ffffff; border: 2px solid #8b4513; border-radius: 10px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .summary-title { font-size: 0.95rem; font-weight: bold; color: var(--primary-color); border-bottom: 2px solid #f5f5f7; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .summary-list { list-style: none; }
+    .summary-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #eee; font-size: 0.85rem; }
+    .gift-tag { color: #2e7d32; font-weight: bold; }
+
+    .footer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 8px 12px; z-index: 100; }
+    .footer-content { max-width: 600px; margin: 0 auto; }
+    .total-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; font-weight: bold; }
+    .total-amount { color: #d9534f; font-size: 1.15rem; }
+    .cash-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.85rem; }
+    .cash-input { width: 80px; padding: 3px 6px; font-size: 0.95rem; border-radius: 6px; border: 1px solid #ccc; text-align: right; }
+    .change-text { color: #2e7d32; font-weight: bold; font-size: 1rem; }
+    .btn-group { display: flex; gap: 6px; }
+    .btn { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
+    .btn-clear { background-color: #90a4ae; color: white; }
+    .btn-checkout { background-color: #2e7d32; color: white; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🥟 包子饅頭 POS 收銀機</h1>
+    <div class="promo-banner">優惠：滿 10 顆送 1 顆（精簡對齊版）</div>
+  </header>
+  <div class="container">
+    <div id="menu-container" class="menu-grid"></div>
+    <div id="gift-container" class="gift-container" style="display: none;">
+      <div class="gift-title">🎁 獲得 <span id="gift-count">0</span> 個免費贈品</div>
+      <div id="gift-selects"></div>
+    </div>
+    <div id="summary-card" class="summary-card">
+      <div class="summary-title">
+        <span>📋 購物明細核對</span>
+        <span id="detail-count-tag" style="font-size: 0.75rem; color: #666; font-weight: normal;">尚未選購</span>
+      </div>
+      <ul id="summary-list" class="summary-list">
+        <li class="summary-item" style="color: #888; justify-content: center;">請在上方選擇商品數量</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bar">
+    <div class="footer-content">
+      <div class="total-row">
+        <span>總數：<span id="total-qty" style="color:#d9534f;">0</span> 顆</span>
+        <span>應收金額：<span id="total-price" class="total-amount">$0</span></span>
+      </div>
+      <div class="cash-row">
+        <label>實收現金：$ <input type="number" id="cash-input" class="cash-input" placeholder="0" oninput="calculateChange()"></label>
+        <span style="margin-left: auto;">找零：<span id="change-amount" class="change-text">$0</span></span>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-clear" onclick="resetForm()">清空</button>
+        <button class="btn btn-checkout" onclick="completeOrder()">結帳</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const items = [
+      { id: 'item1', name: '白饅頭', freshPrice: 17, clearancePrice: 15 },
+      { id: 'item2', name: '無糖饅頭', freshPrice: 17, clearancePrice: 15 },
+      { id: 'item3', name: '黑糖饅頭', freshPrice: 20, clearancePrice: 18 },
+      { id: 'item4', name: '芋頭饅頭', freshPrice: 20, clearancePrice: 18 },
+      { id: 'item5', name: '牛奶饅頭', freshPrice: 20, clearancePrice: 18 },
+      { id: 'item6', name: '蔓越莓饅頭', freshPrice: 20, clearancePrice: 18 },
+      { id: 'item7', name: '桂圓饅頭', freshPrice: 22, clearancePrice: 20 },
+      { id: 'item8', name: '雜糧饅頭', freshPrice: 22, clearancePrice: 20 },
+      { id: 'item9', name: '芝麻包', freshPrice: 22, clearancePrice: 20 },
+      { id: 'item10', name: '豆沙包', freshPrice: 22, clearancePrice: 20 },
+      { id: 'item11', name: '起司捲', freshPrice: 24, clearancePrice: 22 },
+      { id: 'item12', name: '筍包', freshPrice: 25, clearancePrice: 23 },
+      { id: 'item13', name: '肉包', freshPrice: 28, clearancePrice: 26 }
+    ];
+
+    const state = {};
+    items.forEach(item => { state[item.id] = { fresh: 0, clearance: 0 }; });
+    let selectedGifts = [];
+
+    function renderMenu() {
+      const container = document.getElementById('menu-container');
+      container.innerHTML = '';
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        
+        let numOptions = '';
+        for (let i = 0; i <= 30; i++) { numOptions += `<option value="${i}">${i}</option>`; }
+        
+        card.innerHTML = `
+          <div>
+            <div class="card-top">
+              <span class="item-name">${item.name}</span>
+              <span class="item-subtotal" id="subtext-${item.id}">合計$0</span>
+            </div>
+            <div class="card-selectors">
+              <div class="selector-col">
+                <span class="selector-label label-fresh">今日$${item.freshPrice}</span>
+                <select class="qty-select" id="fresh-${item.id}" onchange="updateQty('${item.id}', 'fresh', this.value)">
+                  ${numOptions}
+                </select>
+              </div>
+              <div class="selector-col">
+                <span class="selector-label label-clearance">昨日$${item.clearancePrice}</span>
+                <select class="qty-select" id="clearance-${item.id}" onchange="updateQty('${item.id}', 'clearance', this.value)">
+                  ${numOptions}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+        
+        document.getElementById(`fresh-${item.id}`).value = state[item.id].fresh;
+        document.getElementById(`clearance-${item.id}`).value = state[item.id].clearance;
+      });
+    }
+
+    function updateQty(itemId, type, value) {
+      state[itemId][type] = parseInt(value, 10);
+      calculateTotal();
+    }
+
+    function calculateTotal() {
+      let totalQty = 0, totalPrice = 0;
+      items.forEach(item => {
+        const freshQty = state[item.id].fresh, clearanceQty = state[item.id].clearance;
+        const subtotal = (freshQty * item.freshPrice) + (clearanceQty * item.clearancePrice);
+        document.getElementById(`subtext-${item.id}`).innerText = `合計$${subtotal}`;
+        totalQty += (freshQty + clearanceQty);
+        totalPrice += subtotal;
+      });
+      document.getElementById('total-qty').innerText = totalQty;
+      document.getElementById('total-price').innerText = `$${totalPrice}`;
+      const giftCount = Math.floor(totalQty / 10);
+      updateGiftSection(giftCount);
+      updateSummaryDetail(giftCount);
+      calculateChange();
+    }
+
+    function updateGiftSection(giftCount) {
+      const giftContainer = document.getElementById('gift-container');
+      const giftSelects = document.getElementById('gift-selects');
+      document.getElementById('gift-count').innerText = giftCount;
+
+      if (giftCount > 0) {
+        giftContainer.style.display = 'block';
+
+        let allPurchasedItems = [];
+        items.forEach(item => {
+          const freshQty = state[item.id].fresh;
+          const clearanceQty = state[item.id].clearance;
+          for (let i = 0; i < freshQty; i++) { 
+            allPurchasedItems.push({ id: item.id, name: item.name, price: item.freshPrice }); 
+          }
+          for (let i = 0; i < clearanceQty; i++) { 
+            allPurchasedItems.push({ id: item.id, name: item.name, price: item.clearancePrice }); 
+          }
+        });
+
+        let groupMaxPrices = [];
+        for (let g = 0; g < giftCount; g++) {
+          let chunk = allPurchasedItems.slice(g * 10, (g + 1) * 10);
+          if (chunk.length > 0) {
+            let minPriceInChunk = Math.min(...chunk.map(i => i.price));
+            groupMaxPrices.push(minPriceInChunk);
+          } else {
+            groupMaxPrices.push(17);
+          }
+        }
+
+        if (selectedGifts.length !== giftCount) {
+          selectedGifts = [];
+          for (let i = 0; i < giftCount; i++) {
+            let maxP = groupMaxPrices[i];
+            let defaultItem = items.find(it => it.freshPrice <= maxP) || items[0];
+            selectedGifts.push(defaultItem.id);
+          }
+        }
+
+        giftSelects.innerHTML = '';
+        for (let i = 0; i < giftCount; i++) {
+          const div = document.createElement('div');
+          div.className = 'gift-row';
+          let maxPrice = groupMaxPrices[i];
+          
+          let allowedItems = items.filter(item => item.freshPrice <= maxPrice);
+          if (allowedItems.length === 0) allowedItems = items;
+
+          let currentSelectedId = selectedGifts[i];
+          if (!allowedItems.some(it => it.id === currentSelectedId)) {
+            selectedGifts[i] = allowedItems[0].id;
+          }
+
+          let options = allowedItems.map(item => {
+            const isSelected = selectedGifts[i] === item.id ? 'selected' : '';
+            return `<option value="${item.id}" ${isSelected}>${item.name} ($${item.freshPrice})</option>`;
+          }).join('');
+
+          div.innerHTML = `
+            <label style="font-size: 0.75rem; color: #2e7d32; font-weight: bold;">贈品 ${i + 1} (限 $${maxPrice} 以下品項)：</label>
+            <select onchange="updateGiftSelection(${i}, this.value)">${options}</select>
+          `;
+          giftSelects.appendChild(div);
+        }
+      } else {
+        giftContainer.style.display = 'none';
+        selectedGifts = [];
+      }
+    }
+
+    function updateGiftSelection(index, itemId) {
+      selectedGifts[index] = itemId;
+      updateSummaryDetail(selectedGifts.length);
+    }
+
+    function updateSummaryDetail(giftCount) {
+      const summaryList = document.getElementById('summary-list');
+      const detailCountTag = document.getElementById('detail-count-tag');
+      summaryList.innerHTML = '';
+      let hasItems = false, totalItemCount = 0;
+
+      items.forEach(item => {
+        const freshQty = state[item.id].fresh, clearanceQty = state[item.id].clearance;
+        if (freshQty > 0) {
+          hasItems = true; totalItemCount += freshQty;
+          summaryList.innerHTML += `<li class="summary-item"><span>${item.name}(今日)×${freshQty}</span><span>$${freshQty * item.freshPrice}</span></li>`;
+        }
+        if (clearanceQty > 0) {
+          hasItems = true; totalItemCount += clearanceQty;
+          summaryList.innerHTML += `<li class="summary-item" style="color: #e65100; font-weight: bold;"><span>${item.name}(昨日)×${clearanceQty}</span><span>$${clearanceQty * item.clearancePrice}</span></li>`;
+        }
+      });
+
+      if (giftCount > 0 && selectedGifts.length > 0) {
+        selectedGifts.forEach((giftId, index) => {
+          const giftItem = items.find(i => i.id === giftId);
+          if (giftItem) {
+            summaryList.innerHTML += `<li class="summary-item gift-tag"><span>🎁 贈品${index+1}：${giftItem.name}</span><span>免費</span></li>`;
+          }
+        });
+      }
+
+      if (!hasItems) {
+        summaryList.innerHTML = '<li class="summary-item" style="color: #888; justify-content: center;">請在上方選擇商品數量</li>';
+        detailCountTag.innerText = '尚未選購';
+      } else {
+        detailCountTag.innerText = `共${totalItemCount}顆+贈${giftCount}`;
+      }
+    }
+
+    function calculateChange() {
+      const cash = parseFloat(document.getElementById('cash-input').value) || 0;
+      let totalPrice = 0;
+      items.forEach(item => { totalPrice += (state[item.id].fresh * item.freshPrice) + (state[item.id].clearance * item.clearancePrice); });
+      const change = cash - totalPrice;
+      const changeEl = document.getElementById('change-amount');
+      if (cash > 0) {
+        changeEl.innerText = change >= 0 ? `$${change}` : `差$${Math.abs(change)}`;
+        changeEl.style.color = change >= 0 ? '#2e7d32' : '#d9534f';
+      } else {
+        changeEl.innerText = '$0';
+        changeEl.style.color = '#2e7d32';
+      }
+    }
+
+    function resetForm() {
+      items.forEach(item => { state[item.id] = { fresh: 0, clearance: 0 }; });
+      document.getElementById('cash-input').value = '';
+      selectedGifts = [];
+      renderMenu();
+      calculateTotal();
+    }
+
+    function completeOrder() {
+      if (parseInt(document.getElementById('total-qty').innerText, 10) === 0) { alert('尚未選擇任何商品！'); return; }
+      alert('訂單完成！清空畫面準備下一筆交易。');
+      resetForm();
+    }
+
+    renderMenu();
+  </script>
+</body>
+</html>
