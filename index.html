@@ -122,7 +122,6 @@ body {
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1400px;
   text-align: center;
 }
 
@@ -426,8 +425,8 @@ th.col-sticky {
     <select id="monthSelect">
       <option value="1">1</option><option value="2">2</option><option value="3">3</option>
       <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-      <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-      <option value="10" selected>10</option><option value="11">11</option><option value="12">12</option>
+      <option value="7">7</option><option value="8">8</option><option value="9" selected>9</option>
+      <option value="10">10</option><option value="11">11</option><option value="12">12</option>
     </select> 月
   </div>
 
@@ -439,11 +438,11 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（每人最右側自動加總休假天數）。
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（會自動依照所選年份與月份計算天數與星期）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
-  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">10</span> 月 輪休排班表
+  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">9</span> 月 輪休排班表
 </div>
 
 <div class="table-container">
@@ -530,9 +529,9 @@ let mutexRules = [
   { a: "阿文", b: "阿勳" }
 ];
 
+// 支援跨月份儲存排班資料：scheduleData[year_month][staffName][day]
 let scheduleData = {};
 let cellElements = {}; 
-const daysInMonth = 31;
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
@@ -543,13 +542,41 @@ window.onload = function() {
   renderRulesModal();
   runAudit();
 
-  document.getElementById('yearSelect').addEventListener('change', updateTitle);
-  document.getElementById('monthSelect').addEventListener('change', updateTitle);
+  document.getElementById('yearSelect').addEventListener('change', () => {
+    updateTitle();
+    initTable();
+    runAudit();
+  });
+  document.getElementById('monthSelect').addEventListener('change', () => {
+    updateTitle();
+    initTable();
+    runAudit();
+  });
 };
 
 function updateTitle() {
   document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
   document.getElementById('displayMonth').innerText = document.getElementById('monthSelect').value;
+}
+
+function getMonthKey() {
+  const y = document.getElementById('yearSelect').value;
+  const m = document.getElementById('monthSelect').value;
+  return `${y}_${m}`;
+}
+
+function getDaysInCurrentMonth() {
+  const rocYear = parseInt(document.getElementById('yearSelect').value);
+  const month = parseInt(document.getElementById('monthSelect').value);
+  const gregorianYear = rocYear + 1911;
+  return new Date(gregorianYear, month, 0).getDate();
+}
+
+function getStartDayOfWeek() {
+  const rocYear = parseInt(document.getElementById('yearSelect').value);
+  const month = parseInt(document.getElementById('monthSelect').value);
+  const gregorianYear = rocYear + 1911;
+  return new Date(gregorianYear, month - 1, 1).getDay();
 }
 
 function initTable() {
@@ -562,7 +589,11 @@ function initTable() {
   tableBody.innerHTML = '';
   cellElements = {};
 
-  let startDayOfWeek = 4; // 115年10月1日為星期四
+  const daysInMonth = getDaysInCurrentMonth();
+  const startDayOfWeek = getStartDayOfWeek();
+  const monthKey = getMonthKey();
+
+  if (!scheduleData[monthKey]) scheduleData[monthKey] = {};
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dayOfWeek = weekDays[(startDayOfWeek + d - 1) % 7];
@@ -589,7 +620,7 @@ function initTable() {
   headerRowDay.appendChild(thRestDay);
 
   staffList.forEach(staff => {
-    if (!scheduleData[staff.name]) scheduleData[staff.name] = {};
+    if (!scheduleData[monthKey][staff.name]) scheduleData[monthKey][staff.name] = {};
     if (!cellElements[staff.name]) cellElements[staff.name] = {};
 
     const tr = document.createElement('tr');
@@ -603,12 +634,12 @@ function initTable() {
       td.className = 'cell-cell';
       cellElements[staff.name][d] = td;
 
-      const currentVal = scheduleData[staff.name][d] || "";
+      const currentVal = scheduleData[monthKey][staff.name][d] || "";
       updateCellDisplay(td, currentVal, staff.name, d);
 
       td.onclick = () => {
         let newVal = "";
-        const val = scheduleData[staff.name][d] || "";
+        const val = scheduleData[monthKey][staff.name][d] || "";
 
         if (staff.type === 'aming') {
           let idx = amingShifts.indexOf(val);
@@ -622,7 +653,7 @@ function initTable() {
           newVal = (val === "休") ? "" : "休";
         }
 
-        scheduleData[staff.name][d] = newVal;
+        scheduleData[monthKey][staff.name][d] = newVal;
         refreshTableStyles();
         runAudit();
       };
@@ -647,6 +678,7 @@ function initTable() {
 function initSummary() {
   const tableFoot = document.getElementById('tableFoot');
   tableFoot.innerHTML = '';
+  const daysInMonth = getDaysInCurrentMonth();
 
   // 1. 每日休假人員總計
   const trRest = document.createElement('tr');
@@ -664,7 +696,6 @@ function initSummary() {
     td.innerText = '0人';
     trRest.appendChild(td);
   }
-  // 最後一格對應休假天數欄位
   const tdRestTotal = document.createElement('td');
   tdRestTotal.id = 'summary_total_rest';
   tdRestTotal.innerText = '0天';
@@ -687,7 +718,6 @@ function initSummary() {
     td.innerText = staffList.length + '人';
     trWork.appendChild(td);
   }
-  // 最後一格對應休假天數欄位
   const tdWorkTotal = document.createElement('td');
   tdWorkTotal.innerText = '-';
   trWork.appendChild(tdWorkTotal);
@@ -695,12 +725,14 @@ function initSummary() {
 }
 
 function updateSummary() {
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
   let totalMonthlyRest = 0;
 
   staffList.forEach(staff => {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      const val = scheduleData[staff.name] ? scheduleData[staff.name][d] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val === '休') {
         restDays++;
       }
@@ -715,7 +747,7 @@ function updateSummary() {
   for (let d = 1; d <= daysInMonth; d++) {
     let restCount = 0;
     staffList.forEach(staff => {
-      const val = scheduleData[staff.name] ? scheduleData[staff.name][d] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val === '休') {
         restCount++;
       }
@@ -737,15 +769,16 @@ function updateSummary() {
 }
 
 function hasMutexConflict(staffName, day) {
-  const val = scheduleData[staffName] ? scheduleData[staffName][day] : "";
+  const monthKey = getMonthKey();
+  const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
   if (val !== '休') return false;
 
   for (let rule of mutexRules) {
     if (rule.a === staffName) {
-      const otherVal = scheduleData[rule.b] ? scheduleData[rule.b][day] : "";
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
       if (otherVal === '休') return true;
     } else if (rule.b === staffName) {
-      const otherVal = scheduleData[rule.a] ? scheduleData[rule.a][day] : "";
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
       if (otherVal === '休') return true;
     }
   }
@@ -759,7 +792,7 @@ function isRamenStaff(staffName, day) {
   }
   if (staffName === '吳駿毅') {
     if (day < 16) return false; // 前半個月不是
-    const startDayOfWeek = 4; // 115年10月1日為星期四
+    const startDayOfWeek = getStartDayOfWeek();
     const dayOfWeek = (startDayOfWeek + day - 1) % 7;
     if (dayOfWeek === 4 || dayOfWeek === 5) {
       return false; // 後半個月的星期四和星期五也不是
@@ -767,7 +800,8 @@ function isRamenStaff(staffName, day) {
     return true;
   }
   if (staffName === '阿明') {
-    const val = scheduleData['阿明'] && scheduleData['阿明'][day] ? scheduleData['阿明'][day] : "";
+    const monthKey = getMonthKey();
+    const val = scheduleData[monthKey] && scheduleData[monthKey]['阿明'] ? scheduleData[monthKey]['阿明'][day] : "";
     return typeof val === 'string' && val.startsWith('03:00~07:00');
   }
   return false;
@@ -775,9 +809,10 @@ function isRamenStaff(staffName, day) {
 
 function getRamenActiveCount(day) {
   let count = 0;
+  const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[staff.name] ? scheduleData[staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
       if (val !== '休') {
         count++;
       }
@@ -809,11 +844,14 @@ function updateCellDisplay(td, val, staffName, day) {
 }
 
 function refreshTableStyles() {
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
+
   staffList.forEach(staff => {
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
-        const val = scheduleData[staff.name] ? scheduleData[staff.name][d] : "";
+        const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
         updateCellDisplay(td, val, staff.name, d);
       }
     }
@@ -824,22 +862,25 @@ function refreshTableStyles() {
 function runAudit() {
   const auditList = document.getElementById('auditList');
   let logs = [];
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
+  const currentMonthStr = document.getElementById('monthSelect').value;
 
   // 1. 拉麵人員檢核
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
-      logs.push(`<span class="audit-item-error">⚠️ 10月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
+      logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
     }
   }
 
   // 2. 休假互斥檢核
   for (let d = 1; d <= daysInMonth; d++) {
     mutexRules.forEach(rule => {
-      const valA = scheduleData[rule.a] ? scheduleData[rule.a][d] : "";
-      const valB = scheduleData[rule.b] ? scheduleData[rule.b][d] : "";
+      const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
+      const valB = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][d] : "";
       if (valA === "休" && valB === "休") {
-        logs.push(`<span class="audit-item-error">🚫 10月 ${d} 日 衝突：${rule.a} 與 ${rule.b} 同日休假</span>`);
+        logs.push(`<span class="audit-item-error">🚫 ${currentMonthStr}月 ${d} 日 衝突：${rule.a} 與 ${rule.b} 同日休假</span>`);
       }
     });
   }
@@ -848,7 +889,8 @@ function runAudit() {
   staffList.forEach(staff => {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      if (scheduleData[staff.name] && scheduleData[staff.name][d] === '休') {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      if (val === '休') {
         restDays++;
       }
     }
