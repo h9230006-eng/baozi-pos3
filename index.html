@@ -120,13 +120,13 @@ body {
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 900px;
+  min-width: 1200px;
   text-align: center;
 }
 
 th, td {
   border: 1px solid var(--border-color);
-  padding: 6px 4px;
+  padding: 6px 2px;
   font-size: 0.85rem;
 }
 
@@ -152,10 +152,11 @@ th.col-sticky {
   z-index: 3;
 }
 
+/* 擴寬日期欄位，讓下拉選單全文完整呈現 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
-  min-width: 36px;
+  min-width: 76px;
   height: 38px;
   vertical-align: middle;
 }
@@ -179,7 +180,9 @@ select.shift-select {
   background: transparent;
   text-align: center;
   font-size: 0.75rem;
+  font-weight: bold;
   cursor: pointer;
+  padding: 0;
 }
 
 .weekend {
