@@ -18,6 +18,8 @@
   --support-text: #0369a1;
   --alert-bg: #fee2e2;
   --alert-text: #991b1b;
+  --summary-bg: #fef9c3;
+  --summary-text: #713f12;
 }
 
 * {
@@ -183,6 +185,19 @@ th.col-sticky {
   color: var(--alert-text) !important;
   font-weight: bold;
   border: 2px solid #dc2626 !important;
+}
+
+/* 底部統計列樣式 */
+.summary-row {
+  background-color: var(--summary-bg);
+  color: var(--summary-text);
+  font-weight: bold;
+  font-size: 0.8rem;
+  height: 36px;
+}
+
+.summary-row td {
+  border: 1px solid var(--border-color);
 }
 
 .weekend {
@@ -434,6 +449,8 @@ th.col-sticky {
     </thead>
     <tbody id="tableBody">
     </tbody>
+    <tfoot id="tableFoot">
+    </tfoot>
   </table>
 </div>
 
@@ -590,6 +607,7 @@ function initTable() {
         scheduleData[staff.name][d] = newVal;
         refreshTableStyles();
         runAudit();
+        updateSummary();
       };
 
       tr.appendChild(td);
@@ -597,6 +615,72 @@ function initTable() {
 
     tableBody.appendChild(tr);
   });
+
+  initSummary();
+  updateSummary();
+}
+
+function initSummary() {
+  const tableFoot = document.getElementById('tableFoot');
+  tableFoot.innerHTML = '';
+
+  // 1. 每日休假人員總計
+  const trRest = document.createElement('tr');
+  trRest.className = 'summary-row';
+  const tdRestLabel = document.createElement('td');
+  tdRestLabel.className = 'col-sticky';
+  tdRestLabel.style.backgroundColor = 'var(--summary-bg)';
+  tdRestLabel.style.zIndex = '2';
+  tdRestLabel.innerText = '每日休假人員總計';
+  trRest.appendChild(tdRestLabel);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const td = document.createElement('td');
+    td.id = `summary_rest_${d}`;
+    td.innerText = '0人';
+    trRest.appendChild(td);
+  }
+  tableFoot.appendChild(trRest);
+
+  // 2. 當日上班人數
+  const trWork = document.createElement('tr');
+  trWork.className = 'summary-row';
+  const tdWorkLabel = document.createElement('td');
+  tdWorkLabel.className = 'col-sticky';
+  tdWorkLabel.style.backgroundColor = 'var(--summary-bg)';
+  tdWorkLabel.style.zIndex = '2';
+  tdWorkLabel.innerText = '當日上班人數';
+  trWork.appendChild(tdWorkLabel);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const td = document.createElement('td');
+    td.id = `summary_work_${d}`;
+    td.innerText = staffList.length + '人';
+    trWork.appendChild(td);
+  }
+  tableFoot.appendChild(trWork);
+}
+
+function updateSummary() {
+  const totalStaff = staffList.length;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    let restCount = 0;
+    staffList.forEach(staff => {
+      const val = scheduleData[staff.name] ? scheduleData[staff.name][d] : "";
+      if (val === '休') {
+        restCount++;
+      }
+    });
+
+    const workCount = totalStaff - restCount;
+
+    const restCell = document.getElementById(`summary_rest_${d}`);
+    const workCell = document.getElementById(`summary_work_${d}`);
+
+    if (restCell) restCell.innerText = restCount > 0 ? `${restCount}人` : '0人';
+    if (workCell) workCell.innerText = `${workCount}人`;
+  }
 }
 
 function hasMutexConflict(staffName, day) {
@@ -631,7 +715,7 @@ function isRamenStaff(staffName, day) {
   }
   if (staffName === '阿明') {
     const val = scheduleData['阿明'] && scheduleData['阿明'][day] ? scheduleData['阿明'][day] : "";
-    return typeof val === 'string' && val.startsWith('03:00~07:00'); // 有點選 03:00~07:00 也是拉麵人員
+    return typeof val === 'string' && val.startsWith('03:00~07:00');
   }
   return false;
 }
@@ -681,6 +765,7 @@ function refreshTableStyles() {
       }
     }
   });
+  updateSummary();
 }
 
 function runAudit() {
