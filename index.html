@@ -120,7 +120,7 @@ body {
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1600px;
+  min-width: 1800px;
   text-align: center;
 }
 
@@ -152,11 +152,11 @@ th.col-sticky {
   z-index: 3;
 }
 
-/* 欄位寬度保持 115px，高度拉高至 52px 確保文字與下拉選單完整舒適顯示 */
+/* 欄位寬度擴寬至 140px，高度拉高至 52px 確保長文字完整顯示 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
-  min-width: 115px;
+  min-width: 140px;
   height: 52px;
   vertical-align: middle;
 }
@@ -179,7 +179,7 @@ select.shift-select {
   border: none;
   background: transparent;
   text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: bold;
   cursor: pointer;
   padding: 0;
@@ -563,11 +563,18 @@ function initTable() {
       if (staff.type === 'aming') {
         const select = document.createElement('select');
         select.className = 'shift-select';
-        ['', '03:00~07:00', '10:00~15:00', '休'].forEach(opt => {
+        const amingOptions = [
+          { val: '', label: '—' },
+          { val: '休', label: '休假' },
+          { val: '03:00~07:00', label: '03:00~07:00' },
+          { val: '03:00~07:00 發麵休息', label: '03:00~07:00 發麵休息' },
+          { val: '10:00~15:00', label: '10:00~15:00' }
+        ];
+        amingOptions.forEach(opt => {
           const o = document.createElement('option');
-          o.value = opt;
-          o.innerText = opt || '—';
-          if (currentVal === opt) o.selected = true;
+          o.value = opt.val;
+          o.innerText = opt.label;
+          if (currentVal === opt.val) o.selected = true;
           select.appendChild(o);
         });
         select.onchange = (e) => {
