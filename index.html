@@ -615,24 +615,38 @@ function hasMutexConflict(staffName, day) {
   return false;
 }
 
+// 判斷特定人員在特定日期是否為拉麵人員
+function isRamenStaff(staffName, day) {
+  if (['阿勳', '阿文', '鐘孝謙'].includes(staffName)) {
+    return true;
+  }
+  if (staffName === '吳駿毅') {
+    if (day < 16) return false; // 前半個月不是
+    const startDayOfWeek = 4; // 115年10月1日為星期四
+    const dayOfWeek = (startDayOfWeek + day - 1) % 7;
+    if (dayOfWeek === 4 || dayOfWeek === 5) {
+      return false; // 後半個月的星期四和星期五也不是
+    }
+    return true;
+  }
+  if (staffName === '阿明') {
+    const val = scheduleData['阿明'] ? scheduleData['阿明'][day] : "";
+    return val.startsWith('03:00~07:00'); // 有點選 03:00~07:00 也是拉麵人員
+  }
+  return false;
+}
+
 function getRamenActiveCount(day) {
   let count = 0;
-  const ramenNames = ['阿勳', '阿文', '鐘孝謙'];
-  if (day >= 16) ramenNames.push('吳駿毅');
-  
-  ramenNames.forEach(name => {
-    const val = scheduleData[name] ? scheduleData[name][day] : "";
-    if (val !== '休') {
-      count++;
+  staffList.forEach(staff => {
+    if (isRamenStaff(staff.name, day)) {
+      const val = scheduleData[staff.name] ? scheduleData[staff.name][day] : "";
+      if (val !== '休') {
+        count++;
+      }
     }
   });
   return count;
-}
-
-function isRamenStaff(staffName, day) {
-  if (['阿勳', '阿文', '鐘孝謙'].includes(staffName)) return true;
-  if (staffName === '吳駿毅' && day >= 16) return true;
-  return false;
 }
 
 function hasRamenShortage(staffName, day) {
@@ -678,7 +692,7 @@ function runAudit() {
   const auditList = document.getElementById('auditList');
   let logs = [];
 
-  // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
+  // 1. 拉麵人員檢核
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
