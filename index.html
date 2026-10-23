@@ -484,18 +484,18 @@ th.col-sticky {
 
 <script>
 let staffList = [
-  { name: "全明正", type: "normal", minRest: 6, maxRest: 7 },
-  { name: "吳駿毅", type: "ramen", minRest: 6, maxRest: 7 },
-  { name: "阿文", type: "ramen", minRest: 4, maxRest: 8 },
-  { name: "謝嘉昌", type: "normal", minRest: 4, maxRest: 8 },
-  { name: "鐘孝謙", type: "ramen", minRest: 4, maxRest: 8 },
-  { name: "阿勳", type: "ramen", minRest: 4, maxRest: 8 },
-  { name: "禹伯海", type: "normal", minRest: 4, maxRest: 8 },
-  { name: "阿志", type: "normal", minRest: 4, maxRest: 8 },
-  { name: "阿明", type: "aming", minRest: 4, maxRest: 8 },
-  { name: "經理", type: "manager", minRest: 0, maxRest: 31 },
-  { name: "曉芳", type: "hsiaofang", minRest: 4, maxRest: 8 },
-  { name: "阿燁", type: "normal", minRest: 4, maxRest: 8 }
+  { name: "全明正", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "吳駿毅", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "阿文", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "謝嘉昌", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "鐘孝謙", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "阿勳", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "禹伯海", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "阿志", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "阿明", type: "aming", minRest: 0, maxRest: 0 },
+  { name: "經理", type: "manager", minRest: 0, maxRest: 0 },
+  { name: "曉芳", type: "hsiaofang", minRest: 0, maxRest: 0 },
+  { name: "阿燁", type: "normal", minRest: 0, maxRest: 0 }
 ];
 
 let mutexRules = [
@@ -650,7 +650,7 @@ function runAudit() {
   const auditList = document.getElementById('auditList');
   let logs = [];
 
-  // 1. 拉麵人員檢核 (阿勳、阿文、鐘孝謙全月；吳駿毅 16 日起)
+  // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = 0;
     ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
@@ -689,9 +689,10 @@ function runAudit() {
         restDays++;
       }
     }
-    if (restDays < staff.minRest) {
+    // 如果設定的最少或最多不大於 0，則略過該項天數上下限檢核
+    if (staff.minRest > 0 && restDays < staff.minRest) {
       logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
-    } else if (restDays > staff.maxRest) {
+    } else if (staff.maxRest > 0 && restDays > staff.maxRest) {
       logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
     }
   });
@@ -772,7 +773,7 @@ function removeMutex(idx) {
 function saveRules() {
   staffList.forEach((s, idx) => {
     const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
-    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 31;
+    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 0;
     s.minRest = minVal;
     s.maxRest = maxVal;
   });
@@ -786,7 +787,7 @@ function saveRules() {
 function addNewStaff() {
   const name = prompt("請輸入新人員姓名：");
   if (name) {
-    staffList.push({ name: name, type: "normal", minRest: 4, maxRest: 8 });
+    staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0 });
     initTable();
     runAudit();
   }
