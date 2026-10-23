@@ -177,7 +177,7 @@ th.col-sticky {
   font-weight: bold;
 }
 
-/* 互斥衝突紅框高亮樣式 */
+/* 衝突與人力不足紅框高亮樣式 */
 .cell-conflict {
   background-color: var(--alert-bg) !important;
   color: var(--alert-text) !important;
@@ -415,7 +415,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（互斥衝突時格子會自動變為醒目紅色）。
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（互斥衝突或拉麵不足時格子會自動變紅）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -615,14 +615,40 @@ function hasMutexConflict(staffName, day) {
   return false;
 }
 
+function getRamenActiveCount(day) {
+  let count = 0;
+  const ramenNames = ['阿勳', '阿文', '鐘孝謙'];
+  if (day >= 16) ramenNames.push('吳駿毅');
+  
+  ramenNames.forEach(name => {
+    const val = scheduleData[name] ? scheduleData[name][day] : "";
+    if (val !== '休') {
+      count++;
+    }
+  });
+  return count;
+}
+
+function isRamenStaff(staffName, day) {
+  if (['阿勳', '阿文', '鐘孝謙'].includes(staffName)) return true;
+  if (staffName === '吳駿毅' && day >= 16) return true;
+  return false;
+}
+
+function hasRamenShortage(staffName, day) {
+  if (!isRamenStaff(staffName, day)) return false;
+  return getRamenActiveCount(day) < 2;
+}
+
 function updateCellDisplay(td, val, staffName, day) {
   td.classList.remove('cell-rest', 'cell-support', 'cell-conflict');
 
-  const isConflict = hasMutexConflict(staffName, day);
+  const isMutex = hasMutexConflict(staffName, day);
+  const isRamenErr = hasRamenShortage(staffName, day);
 
-  if (isConflict) {
+  if (isMutex || isRamenErr) {
     td.classList.add('cell-conflict');
-    td.innerText = val ? val : '休';
+    td.innerText = val ? val : '—';
   } else if (val === '休') {
     td.classList.add('cell-rest');
     td.innerText = '休';
@@ -654,19 +680,7 @@ function runAudit() {
 
   // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
   for (let d = 1; d <= daysInMonth; d++) {
-    let activeRamenCount = 0;
-    ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
-      if (!scheduleData[name] || scheduleData[name][d] !== '休') {
-        activeRamenCount++;
-      }
-    });
-
-    if (d >= 16) {
-      if (!scheduleData['吳駿毅'] || scheduleData['吳駿毅'][d] !== '休') {
-        activeRamenCount++;
-      }
-    }
-
+    let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
       logs.push(`<span class="audit-item-error">⚠️ 10月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
     }
