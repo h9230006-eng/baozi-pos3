@@ -1,325 +1,773 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>包子饅頭 POS 收銀機</title>
-  <style>
-    :root {
-      --primary-color: #8b4513;
-      --bg-color: #f5f5f7;
-      --card-bg: #ffffff;
-      --text-color: #333333;
-      --fresh-color: #2e7d32;
-      --clearance-color: #e65100;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text-color); padding-bottom: 140px; user-select: none; }
-    header { background-color: var(--primary-color); color: white; text-align: center; padding: 10px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-    header h1 { font-size: 1.1rem; margin-bottom: 2px; }
-    .promo-banner { font-size: 0.78rem; background: rgba(255, 255, 255, 0.2); padding: 2px 6px; border-radius: 10px; display: inline-block; }
-    .container { max-width: 600px; margin: 0 auto; padding: 8px; }
-    
-    .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
-    .item-card { background: var(--card-bg); border-radius: 10px; padding: 8px 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e0e0e0; }
-    
-    .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .item-name { font-size: 0.88rem; font-weight: bold; }
-    .item-subtotal { font-size: 0.82rem; font-weight: bold; color: #1a73e8; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
+<style>
+:root {
+  --primary-bg: #f5f0eb;
+  --header-bg: #6e3a1e;
+  --header-text: #ffffff;
+  --table-header: #fef3c7;
+  --table-header-text: #78350f;
+  --border-color: #d1d5db;
+  --rest-bg: #dcfce7;
+  --rest-text: #166534;
+  --support-bg: #e0f2fe;
+  --support-text: #0369a1;
+  --alert-bg: #fee2e2;
+  --alert-text: #991b1b;
+}
 
-    .card-selectors { display: flex; gap: 6px; align-items: center; }
-    .selector-col { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .selector-label { font-size: 0.75rem; font-weight: bold; text-align: center; }
-    .label-fresh { color: #2e7d32; }
-    .label-clearance { color: var(--clearance-color); }
-    select.qty-select { font-size: 0.85rem; padding: 3px; border-radius: 6px; border: 1px solid #ccc; background-color: #f8f9fa; text-align: center; font-weight: bold; width: 100%; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
 
-    .gift-container { background: #e8f5e9; border: 2px dashed #2e7d32; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
-    .gift-title { color: #2e7d32; font-weight: bold; font-size: 0.9rem; margin-bottom: 6px; }
-    .gift-row { margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
-    .gift-row select { width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #81c784; font-size: 0.85rem; background: white; font-weight: bold; color: #2e7d32; }
+body {
+  background-color: var(--primary-bg);
+  color: #333;
+  padding: 10px;
+}
 
-    .summary-card { background: #ffffff; border: 2px solid #8b4513; border-radius: 10px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-    .summary-title { font-size: 0.95rem; font-weight: bold; color: var(--primary-color); border-bottom: 2px solid #f5f5f7; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
-    .summary-list { list-style: none; }
-    .summary-item { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #eee; font-size: 0.85rem; }
-    .gift-tag { color: #2e7d32; font-weight: bold; }
+.card {
+  background: var(--header-bg);
+  color: white;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
 
-    .footer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 8px 12px; z-index: 100; }
-    .footer-content { max-width: 600px; margin: 0 auto; }
-    .total-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; font-weight: bold; }
-    .total-amount { color: #d9534f; font-size: 1.15rem; }
-    .cash-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.85rem; }
-    .cash-input { width: 80px; padding: 3px 6px; font-size: 0.95rem; border-radius: 6px; border: 1px solid #ccc; text-align: right; }
-    .change-text { color: #2e7d32; font-weight: bold; font-size: 1rem; }
-    .btn-group { display: flex; gap: 6px; }
-    .btn { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
-    .btn-clear { background-color: #90a4ae; color: white; }
-    .btn-checkout { background-color: #2e7d32; color: white; }
-  </style>
+.card h1 {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card .subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.date-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  background: rgba(255,255,255,0.15);
+  padding: 6px 12px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.date-selector select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-rule { background: #d97706; color: white; }
+.btn-add { background: #059669; color: white; }
+.btn-export { background: #b45309; color: white; }
+
+.notice-box {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.table-container {
+  overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid var(--border-color);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 900px;
+  text-align: center;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 6px 4px;
+  font-size: 0.85rem;
+}
+
+th {
+  background: var(--table-header);
+  color: var(--table-header-text);
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.col-sticky {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 2;
+  font-weight: bold;
+  min-width: 80px;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+}
+
+th.col-sticky {
+  background: var(--table-header);
+  z-index: 3;
+}
+
+.cell-cell {
+  cursor: pointer;
+  user-select: none;
+  min-width: 36px;
+  height: 38px;
+  vertical-align: middle;
+}
+
+.cell-rest {
+  background-color: var(--rest-bg) !important;
+  color: var(--rest-text) !important;
+  font-weight: bold;
+}
+
+.cell-support {
+  background-color: var(--support-bg) !important;
+  color: var(--support-text) !important;
+  font-weight: bold;
+}
+
+select.shift-select {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.weekend {
+  color: #dc2626;
+}
+
+.audit-box {
+  margin-top: 15px;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.audit-title {
+  font-weight: bold;
+  color: #6e3a1e;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audit-list {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.audit-item-error {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.audit-item-ok {
+  color: #166534;
+}
+
+/* Modal 彈窗樣式 */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  background: #6e3a1e;
+  color: white;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 16px;
+}
+
+.rule-section {
+  margin-bottom: 20px;
+}
+
+.rule-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.rule-section-desc {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.mutex-box {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.mutex-box select {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  flex: 1;
+}
+
+.btn-add-mutex {
+  background: #b45309;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mutex-item {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.mutex-item .delete-btn {
+  cursor: pointer;
+  color: #dc2626;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.staff-target-card {
+  background: #fffdf5;
+  border: 1px solid #fef08a;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.staff-target-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.staff-target-inputs input {
+  width: 45px;
+  padding: 4px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.btn-save-rules {
+  width: 100%;
+  background: linear-gradient(to right, #8b4513, #6e3a1e);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
 </head>
 <body>
-  <header>
-    <h1>🥟 包子饅頭 POS 收銀機</h1>
-    <div class="promo-banner">優惠：滿 10 顆送 1 顆（精簡對齊版）</div>
-  </header>
-  <div class="container">
-    <div id="menu-container" class="menu-grid"></div>
-    <div id="gift-container" class="gift-container" style="display: none;">
-      <div class="gift-title">🎁 獲得 <span id="gift-count">0</span> 個免費贈品</div>
-      <div id="gift-selects"></div>
+
+<div class="card">
+  <h1>🏠 麥德加專業饅頭 苗栗店</h1>
+  <div class="subtitle">智慧輪休排班與人力檢核系統</div>
+  
+  <div class="date-selector">
+    民國 
+    <select id="yearSelect">
+      <option value="115" selected>115</option>
+      <option value="116">116</option>
+    </select> 年
+    <select id="monthSelect">
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+      <option value="10" selected>10</option><option value="11">11</option><option value="12">12</option>
+    </select> 月
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-rule" onclick="openRuleModal()">⚙️ 排假規則設定</button>
+    <button class="btn btn-add" onclick="addNewStaff()">➕ 新增人員</button>
+    <button class="btn btn-export" onclick="shareOrExport()">📥 匯出/列印</button>
+  </div>
+</div>
+
+<div class="notice-box">
+  💡 <b>操作說明</b>：一般同仁長按/點選顯示「休」；經理點選顯示「支援」；阿明與曉芳請使用專屬下拉選單。
+</div>
+
+<div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
+  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">10</span> 月 輪休排班表
+</div>
+
+<div class="table-container">
+  <table id="scheduleTable">
+    <thead>
+      <tr id="headerRowName">
+        <th class="col-sticky">姓名 / 日期</th>
+      </tr>
+      <tr id="headerRowDay">
+        <th class="col-sticky">星期</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+    </tbody>
+  </table>
+</div>
+
+<div class="audit-box">
+  <div class="audit-title">🔍 每日人力與規則稽核狀況</div>
+  <div class="audit-list" id="auditList">
+    尚無異常。
+  </div>
+</div>
+
+<!-- 排假規則與參數設定 Modal -->
+<div class="modal-overlay" id="ruleModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>⚙️ 排假規則與參數設定</h2>
+      <button class="modal-close" onclick="closeRuleModal()">✕</button>
     </div>
-    <div id="summary-card" class="summary-card">
-      <div class="summary-title">
-        <span>📋 購物明細核對</span>
-        <span id="detail-count-tag" style="font-size: 0.75rem; color: #666; font-weight: normal;">尚未選購</span>
+    <div class="modal-body">
+      
+      <!-- 人員休假互斥 -->
+      <div class="rule-section">
+        <div class="rule-section-title">🤼 人員休假互斥規則</div>
+        <div class="rule-section-desc">設定兩人不能同一天休假</div>
+        
+        <div class="mutex-box">
+          <select id="mutexA"></select>
+          與
+          <select id="mutexB"></select>
+          <button class="btn-add-mutex" onclick="addMutex()">新增互斥</button>
+        </div>
+
+        <div id="mutexList"></div>
       </div>
-      <ul id="summary-list" class="summary-list">
-        <li class="summary-item" style="color: #888; justify-content: center;">請在上方選擇商品數量</li>
-      </ul>
+
+      <!-- 個別人員月休天數 -->
+      <div class="rule-section">
+        <div class="rule-section-title">👤 個別人員月休天數目標/上限</div>
+        <div class="rule-section-desc">每人獨立對應最少與最多天數</div>
+        <div id="staffTargetList"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
     </div>
   </div>
-  <div class="footer-bar">
-    <div class="footer-content">
-      <div class="total-row">
-        <span>總數：<span id="total-qty" style="color:#d9534f;">0</span> 顆</span>
-        <span>應收金額：<span id="total-price" class="total-amount">$0</span></span>
-      </div>
-      <div class="cash-row">
-        <label>實收現金：$ <input type="number" id="cash-input" class="cash-input" placeholder="0" oninput="calculateChange()"></label>
-        <span style="margin-left: auto;">找零：<span id="change-amount" class="change-text">$0</span></span>
-      </div>
-      <div class="btn-group">
-        <button class="btn btn-clear" onclick="resetForm()">清空</button>
-        <button class="btn btn-checkout" onclick="completeOrder()">結帳</button>
-      </div>
-    </div>
-  </div>
-  <script>
-    const items = [
-      { id: 'item1', name: '白饅頭', freshPrice: 17, clearancePrice: 15 },
-      { id: 'item2', name: '無糖饅頭', freshPrice: 17, clearancePrice: 15 },
-      { id: 'item3', name: '黑糖饅頭', freshPrice: 20, clearancePrice: 18 },
-      { id: 'item4', name: '芋頭饅頭', freshPrice: 20, clearancePrice: 18 },
-      { id: 'item5', name: '牛奶饅頭', freshPrice: 20, clearancePrice: 18 },
-      { id: 'item6', name: '蔓越莓饅頭', freshPrice: 20, clearancePrice: 18 },
-      { id: 'item7', name: '桂圓饅頭', freshPrice: 22, clearancePrice: 20 },
-      { id: 'item8', name: '雜糧饅頭', freshPrice: 22, clearancePrice: 20 },
-      { id: 'item9', name: '芝麻包', freshPrice: 22, clearancePrice: 20 },
-      { id: 'item10', name: '豆沙包', freshPrice: 22, clearancePrice: 20 },
-      { id: 'item11', name: '起司捲', freshPrice: 24, clearancePrice: 22 },
-      { id: 'item12', name: '筍包', freshPrice: 25, clearancePrice: 23 },
-      { id: 'item13', name: '肉包', freshPrice: 28, clearancePrice: 26 }
-    ];
+</div>
 
-    const state = {};
-    items.forEach(item => { state[item.id] = { fresh: 0, clearance: 0 }; });
-    let selectedGifts = [];
+<script>
+let staffList = [
+  { name: "全明正", type: "normal", minRest: 6, maxRest: 7 },
+  { name: "吳駿毅", type: "ramen", minRest: 6, maxRest: 7 },
+  { name: "阿文", type: "ramen", minRest: 4, maxRest: 8 },
+  { name: "謝嘉昌", type: "normal", minRest: 4, maxRest: 8 },
+  { name: "鐘孝謙", type: "ramen", minRest: 4, maxRest: 8 },
+  { name: "阿勳", type: "ramen", minRest: 4, maxRest: 8 },
+  { name: "禹伯海", type: "normal", minRest: 4, maxRest: 8 },
+  { name: "阿志", type: "normal", minRest: 4, maxRest: 8 },
+  { name: "阿明", type: "aming", minRest: 4, maxRest: 8 },
+  { name: "經理", type: "manager", minRest: 0, maxRest: 31 },
+  { name: "曉芳", type: "hsiaofang", minRest: 4, maxRest: 8 },
+  { name: "阿燁", type: "normal", minRest: 4, maxRest: 8 }
+];
 
-    function renderMenu() {
-      const container = document.getElementById('menu-container');
-      container.innerHTML = '';
-      items.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'item-card';
-        
-        let numOptions = '';
-        for (let i = 0; i <= 30; i++) { numOptions += `<option value="${i}">${i}</option>`; }
-        
-        card.innerHTML = `
-          <div>
-            <div class="card-top">
-              <span class="item-name">${item.name}</span>
-              <span class="item-subtotal" id="subtext-${item.id}">合計$0</span>
-            </div>
-            <div class="card-selectors">
-              <div class="selector-col">
-                <span class="selector-label label-fresh">今日$${item.freshPrice}</span>
-                <select class="qty-select" id="fresh-${item.id}" onchange="updateQty('${item.id}', 'fresh', this.value)">
-                  ${numOptions}
-                </select>
-              </div>
-              <div class="selector-col">
-                <span class="selector-label label-clearance">昨日$${item.clearancePrice}</span>
-                <select class="qty-select" id="clearance-${item.id}" onchange="updateQty('${item.id}', 'clearance', this.value)">
-                  ${numOptions}
-                </select>
-              </div>
-            </div>
-          </div>
-        `;
-        container.appendChild(card);
-        
-        document.getElementById(`fresh-${item.id}`).value = state[item.id].fresh;
-        document.getElementById(`clearance-${item.id}`).value = state[item.id].clearance;
-      });
-    }
+let mutexRules = [
+  { a: "全明正", b: "吳駿毅" }
+];
 
-    function updateQty(itemId, type, value) {
-      state[itemId][type] = parseInt(value, 10);
-      calculateTotal();
-    }
+let scheduleData = {};
+const daysInMonth = 31;
+const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
-    function calculateTotal() {
-      let totalQty = 0, totalPrice = 0;
-      items.forEach(item => {
-        const freshQty = state[item.id].fresh, clearanceQty = state[item.id].clearance;
-        const subtotal = (freshQty * item.freshPrice) + (clearanceQty * item.clearancePrice);
-        document.getElementById(`subtext-${item.id}`).innerText = `合計$${subtotal}`;
-        totalQty += (freshQty + clearanceQty);
-        totalPrice += subtotal;
-      });
-      document.getElementById('total-qty').innerText = totalQty;
-      document.getElementById('total-price').innerText = `$${totalPrice}`;
-      const giftCount = Math.floor(totalQty / 10);
-      updateGiftSection(giftCount);
-      updateSummaryDetail(giftCount);
-      calculateChange();
-    }
+window.onload = function() {
+  initTable();
+  renderRulesModal();
+  runAudit();
 
-    function updateGiftSection(giftCount) {
-      const giftContainer = document.getElementById('gift-container');
-      const giftSelects = document.getElementById('gift-selects');
-      document.getElementById('gift-count').innerText = giftCount;
+  document.getElementById('yearSelect').addEventListener('change', updateTitle);
+  document.getElementById('monthSelect').addEventListener('change', updateTitle);
+};
 
-      if (giftCount > 0) {
-        giftContainer.style.display = 'block';
+function updateTitle() {
+  document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
+  document.getElementById('displayMonth').innerText = document.getElementById('monthSelect').value;
+}
 
-        let allPurchasedItems = [];
-        items.forEach(item => {
-          const freshQty = state[item.id].fresh;
-          const clearanceQty = state[item.id].clearance;
-          // 關鍵修正：無論是今日或昨日購買，計算贈品價格上限時皆以「品項原價 (freshPrice)」為準
-          for (let i = 0; i < freshQty; i++) { 
-            allPurchasedItems.push({ id: item.id, name: item.name, price: item.freshPrice }); 
-          }
-          for (let i = 0; i < clearanceQty; i++) { 
-            allPurchasedItems.push({ id: item.id, name: item.name, price: item.freshPrice }); 
-          }
+function initTable() {
+  const headerRowName = document.getElementById('headerRowName');
+  const headerRowDay = document.getElementById('headerRowDay');
+  const tableBody = document.getElementById('tableBody');
+
+  headerRowName.innerHTML = '<th class="col-sticky">姓名 / 日期</th>';
+  headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
+  tableBody.innerHTML = '';
+
+  let startDayOfWeek = 4; // 115年10月1日為星期四
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = weekDays[(startDayOfWeek + d - 1) % 7];
+    const isWeekend = (dayOfWeek === "六" || dayOfWeek === "日");
+    
+    const thDay = document.createElement('th');
+    thDay.innerText = d;
+    if (isWeekend) thDay.classList.add('weekend');
+    headerRowName.appendChild(thDay);
+
+    const thW = document.createElement('th');
+    thW.innerText = dayOfWeek;
+    if (isWeekend) thW.classList.add('weekend');
+    headerRowDay.appendChild(thW);
+  }
+
+  staffList.forEach(staff => {
+    if (!scheduleData[staff.name]) scheduleData[staff.name] = {};
+
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.className = 'col-sticky';
+    tdName.innerText = staff.name;
+    tr.appendChild(tdName);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const td = document.createElement('td');
+      td.className = 'cell-cell';
+      const currentVal = scheduleData[staff.name][d] || "";
+
+      if (staff.type === 'aming') {
+        const select = document.createElement('select');
+        select.className = 'shift-select';
+        ['', '03:00~07:00', '10:00~15:00', '休'].forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt;
+          o.innerText = opt || '—';
+          if (currentVal === opt) o.selected = true;
+          select.appendChild(o);
         });
+        select.onchange = (e) => {
+          scheduleData[staff.name][d] = e.target.value;
+          updateCellClass(td, e.target.value);
+          runAudit();
+        };
+        td.appendChild(select);
+        updateCellClass(td, currentVal);
 
-        let groupMaxPrices = [];
-        for (let g = 0; g < giftCount; g++) {
-          let chunk = allPurchasedItems.slice(g * 10, (g + 1) * 10);
-          if (chunk.length > 0) {
-            let minPriceInChunk = Math.min(...chunk.map(i => i.price));
-            groupMaxPrices.push(minPriceInChunk);
+      } else if (staff.type === 'hsiaofang') {
+        const select = document.createElement('select');
+        select.className = 'shift-select';
+        ['', '03:00~10:00', '03:00~12:00', '02:30~10:00', '休'].forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt;
+          o.innerText = opt || '—';
+          if (currentVal === opt) o.selected = true;
+          select.appendChild(o);
+        });
+        select.onchange = (e) => {
+          scheduleData[staff.name][d] = e.target.value;
+          updateCellClass(td, e.target.value);
+          runAudit();
+        };
+        td.appendChild(select);
+        updateCellClass(td, currentVal);
+
+      } else {
+        td.innerText = currentVal;
+        updateCellClass(td, currentVal);
+
+        td.onclick = () => {
+          let newVal = "";
+          if (staff.type === 'manager') {
+            newVal = (scheduleData[staff.name][d] === "支援") ? "" : "支援";
           } else {
-            groupMaxPrices.push(17);
+            newVal = (scheduleData[staff.name][d] === "休") ? "" : "休";
           }
-        }
+          scheduleData[staff.name][d] = newVal;
+          td.innerText = newVal;
+          updateCellClass(td, newVal);
+          runAudit();
+        };
+      }
 
-        if (selectedGifts.length < giftCount) {
-          for (let i = selectedGifts.length; i < giftCount; i++) {
-            let maxP = groupMaxPrices[i];
-            let defaultItem = items.find(it => it.freshPrice <= maxP) || items[0];
-            selectedGifts.push(defaultItem.id);
-          }
-        } else if (selectedGifts.length > giftCount) {
-          selectedGifts = selectedGifts.slice(0, giftCount);
-        }
+      tr.appendChild(td);
+    }
 
-        giftSelects.innerHTML = '';
-        for (let i = 0; i < giftCount; i++) {
-          const div = document.createElement('div');
-          div.className = 'gift-row';
-          let maxPrice = groupMaxPrices[i];
-          
-          let allowedItems = items.filter(item => item.freshPrice <= maxPrice);
-          if (allowedItems.length === 0) allowedItems = items;
+    tableBody.appendChild(tr);
+  });
+}
 
-          let currentSelectedId = selectedGifts[i];
-          if (!allowedItems.some(it => it.id === currentSelectedId)) {
-            selectedGifts[i] = allowedItems[0].id;
-          }
+function updateCellClass(td, val) {
+  td.classList.remove('cell-rest', 'cell-support');
+  if (val === '休') td.classList.add('cell-rest');
+  if (val === '支援') td.classList.add('cell-support');
+}
 
-          let options = allowedItems.map(item => {
-            const isSelected = selectedGifts[i] === item.id ? 'selected' : '';
-            return `<option value="${item.id}" ${isSelected}>${item.name} ($${item.freshPrice})</option>`;
-          }).join('');
+function runAudit() {
+  const auditList = document.getElementById('auditList');
+  let logs = [];
 
-          div.innerHTML = `
-            <label style="font-size: 0.75rem; color: #2e7d32; font-weight: bold;">贈品 ${i + 1} (限 $${maxPrice} 以下品項)：</label>
-            <select onchange="updateGiftSelection(${i}, this.value)">${options}</select>
-          `;
-          giftSelects.appendChild(div);
-        }
-      } else {
-        giftContainer.style.display = 'none';
-        selectedGifts = [];
+  // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
+  for (let d = 1; d <= daysInMonth; d++) {
+    let activeRamenCount = 0;
+    ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
+      if (scheduleData[name] && scheduleData[name][d] !== '休') {
+        activeRamenCount++;
+      }
+    });
+
+    if (d >= 16) {
+      if (scheduleData['吳駿毅'] && scheduleData['吳駿毅'][d] !== '休') {
+        activeRamenCount++;
       }
     }
 
-    function updateGiftSelection(index, itemId) {
-      selectedGifts[index] = itemId;
-      updateSummaryDetail(selectedGifts.length);
+    if (activeRamenCount < 2) {
+      logs.push(`<span class="audit-item-error">⚠️ 10月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
     }
+  }
 
-    function updateSummaryDetail(giftCount) {
-      const summaryList = document.getElementById('summary-list');
-      const detailCountTag = document.getElementById('detail-count-tag');
-      summaryList.innerHTML = '';
-      let hasItems = false, totalItemCount = 0;
-
-      items.forEach(item => {
-        const freshQty = state[item.id].fresh, clearanceQty = state[item.id].clearance;
-        if (freshQty > 0) {
-          hasItems = true; totalItemCount += freshQty;
-          summaryList.innerHTML += `<li class="summary-item"><span>${item.name}(今日)×${freshQty}</span><span>$${freshQty * item.freshPrice}</span></li>`;
-        }
-        if (clearanceQty > 0) {
-          hasItems = true; totalItemCount += clearanceQty;
-          summaryList.innerHTML += `<li class="summary-item" style="color: #e65100; font-weight: bold;"><span>${item.name}(昨日)×${clearanceQty}</span><span>$${clearanceQty * item.clearancePrice}</span></li>`;
-        }
-      });
-
-      if (giftCount > 0 && selectedGifts.length > 0) {
-        selectedGifts.forEach((giftId, index) => {
-          const giftItem = items.find(i => i.id === giftId);
-          if (giftItem) {
-            summaryList.innerHTML += `<li class="summary-item gift-tag"><span>🎁 贈品${index+1}：${giftItem.name}</span><span>免費</span></li>`;
-          }
-        });
+  // 2. 休假互斥檢核
+  for (let d = 1; d <= daysInMonth; d++) {
+    mutexRules.forEach(rule => {
+      const valA = scheduleData[rule.a] ? scheduleData[rule.a][d] : "";
+      const valB = scheduleData[rule.b] ? scheduleData[rule.b][d] : "";
+      if (valA === "休" && valB === "休") {
+        logs.push(`<span class="audit-item-error">🚫 10月 ${d} 日 衝突：${rule.a} 與 ${rule.b} 同日休假</span>`);
       }
+    });
+  }
 
-      if (!hasItems) {
-        summaryList.innerHTML = '<li class="summary-item" style="color: #888; justify-content: center;">請在上方選擇商品數量</li>';
-        detailCountTag.innerText = '尚未選購';
-      } else {
-        detailCountTag.innerText = `共${totalItemCount}顆+贈${giftCount}`;
+  // 3. 個別月休天數檢核
+  staffList.forEach(staff => {
+    let restDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (scheduleData[staff.name] && scheduleData[staff.name][d] === '休') {
+        restDays++;
       }
     }
-
-    function calculateChange() {
-      const cash = parseFloat(document.getElementById('cash-input').value) || 0;
-      let totalPrice = 0;
-      items.forEach(item => { totalPrice += (state[item.id].fresh * item.freshPrice) + (state[item.id].clearance * item.clearancePrice); });
-      const change = cash - totalPrice;
-      const changeEl = document.getElementById('change-amount');
-      if (cash > 0) {
-        changeEl.innerText = change >= 0 ? `$${change}` : `差$${Math.abs(change)}`;
-        changeEl.style.color = change >= 0 ? '#2e7d32' : '#d9534f';
-      } else {
-        changeEl.innerText = '$0';
-        changeEl.style.color = '#2e7d32';
-      }
+    if (restDays < staff.minRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
+    } else if (restDays > staff.maxRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
     }
+  });
 
-    function resetForm() {
-      items.forEach(item => { state[item.id] = { fresh: 0, clearance: 0 }; });
-      document.getElementById('cash-input').value = '';
-      selectedGifts = [];
-      renderMenu();
-      calculateTotal();
-    }
+  if (logs.length === 0) {
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
+  } else {
+    auditList.innerHTML = logs.join('<br>');
+  }
+}
 
-    function completeOrder() {
-      if (parseInt(document.getElementById('total-qty').innerText, 10) === 0) { alert('尚未選擇任何商品！'); return; }
-      alert('訂單完成！清空畫面準備下一筆交易。');
-      resetForm();
-    }
+function openRuleModal() {
+  renderRulesModal();
+  document.getElementById('ruleModal').style.display = 'flex';
+}
 
-    renderMenu();
-  </script>
+function closeRuleModal() {
+  document.getElementById('ruleModal').style.display = 'none';
+}
+
+function renderRulesModal() {
+  const mutexA = document.getElementById('mutexA');
+  const mutexB = document.getElementById('mutexB');
+  mutexA.innerHTML = '';
+  mutexB.innerHTML = '';
+
+  staffList.forEach(s => {
+    mutexA.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    mutexB.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+  });
+
+  const mutexList = document.getElementById('mutexList');
+  mutexList.innerHTML = '';
+  mutexRules.forEach((m, idx) => {
+    mutexList.innerHTML += `
+      <div class="mutex-item">
+        <span>🚫 ${m.a} ↔ ${m.b} (不能同日休假)</span>
+        <span class="delete-btn" onclick="removeMutex(${idx})">🗑️</span>
+      </div>
+    `;
+  });
+
+  const staffTargetList = document.getElementById('staffTargetList');
+  staffTargetList.innerHTML = '';
+  staffList.forEach((s, idx) => {
+    staffTargetList.innerHTML += `
+      <div class="staff-target-card">
+        <b>${s.name}</b>
+        <div class="staff-target-inputs">
+          最少 <input type="number" id="min_${idx}" value="${s.minRest}"> 天，
+          最多 <input type="number" id="max_${idx}" value="${s.maxRest}"> 天
+        </div>
+      </div>
+    `;
+  });
+}
+
+function addMutex() {
+  const a = document.getElementById('mutexA').value;
+  const b = document.getElementById('mutexB').value;
+  if (a === b) {
+    alert("請選擇不同的兩人！");
+    return;
+  }
+  mutexRules.push({ a, b });
+  renderRulesModal();
+}
+
+function removeMutex(idx) {
+  mutexRules.splice(idx, 1);
+  renderRulesModal();
+}
+
+function saveRules() {
+  staffList.forEach((s, idx) => {
+    const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
+    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 31;
+    s.minRest = minVal;
+    s.maxRest = maxVal;
+  });
+
+  closeRuleModal();
+  runAudit();
+  alert("排假規則與參數設定已成功儲存並套用！");
+}
+
+function addNewStaff() {
+  const name = prompt("請輸入新人員姓名：");
+  if (name) {
+    staffList.push({ name: name, type: "normal", minRest: 4, maxRest: 8 });
+    initTable();
+    runAudit();
+  }
+}
+
+function shareOrExport() {
+  window.print();
+}
+</script>
 </body>
 </html>
