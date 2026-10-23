@@ -159,7 +159,7 @@ th.col-sticky {
   height: 58px;
   vertical-align: middle;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: bold;
   line-height: 1.25;
   white-space: pre-line;
@@ -662,18 +662,14 @@ function updateCellDisplay(td, val, staffName, day) {
 
   if (isMutex || isRamenErr) {
     td.classList.add('cell-conflict');
-    td.innerText = val ? val : '—';
   } else if (val === '休') {
     td.classList.add('cell-rest');
-    td.innerText = '休';
   } else if (val === '支援') {
     td.classList.add('cell-support');
-    td.innerText = '支援';
-  } else if (!val) {
-    td.innerText = '—';
-  } else {
-    td.innerText = val;
   }
+
+  // 關鍵修復：把文字（休/班別/空白）真正顯示在畫面上
+  td.innerText = val ? val : '';
 }
 
 function refreshTableStyles() {
