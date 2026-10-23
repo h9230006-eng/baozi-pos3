@@ -403,4 +403,400 @@ th.col-sticky {
       <option value="1">1</option><option value="2">2</option><option value="3">3</option>
       <option value="4">4</option><option value="5">5</option><option value="6">6</option>
       <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-      <option value="10" selected>10</option
+      <option value="10" selected>10</option><option value="11">11</option><option value="12">12</option>
+    </select> 月
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-rule" onclick="openRuleModal()">⚙️ 排假規則設定</button>
+    <button class="btn btn-add" onclick="addNewStaff()">➕ 新增人員</button>
+    <button class="btn btn-export" onclick="shareOrExport()">📥 匯出/列印</button>
+  </div>
+</div>
+
+<div class="notice-box">
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（互斥衝突時格子會自動變為醒目紅色）。
+</div>
+
+<div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
+  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">10</span> 月 輪休排班表
+</div>
+
+<div class="table-container">
+  <table id="scheduleTable">
+    <thead>
+      <tr id="headerRowName">
+        <th class="col-sticky">姓名 / 日期</th>
+      </tr>
+      <tr id="headerRowDay">
+        <th class="col-sticky">星期</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+    </tbody>
+  </table>
+</div>
+
+<div class="audit-box">
+  <div class="audit-title">🔍 每日人力與規則稽核狀況</div>
+  <div class="audit-list" id="auditList">
+    尚無異常。
+  </div>
+</div>
+
+<!-- 排假規則與參數設定 Modal -->
+<div class="modal-overlay" id="ruleModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>⚙️ 排假規則與參數設定</h2>
+      <button class="modal-close" onclick="closeRuleModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      
+      <!-- 人員休假互斥 -->
+      <div class="rule-section">
+        <div class="rule-section-title">🤼 人員休假互斥規則</div>
+        <div class="rule-section-desc">設定兩人不能同一天休假</div>
+        
+        <div class="mutex-box">
+          <select id="mutexA"></select>
+          與
+          <select id="mutexB"></select>
+          <button class="btn-add-mutex" onclick="addMutex()">新增互斥</button>
+        </div>
+
+        <div id="mutexList"></div>
+      </div>
+
+      <!-- 個別人員月休天數 -->
+      <div class="rule-section">
+        <div class="rule-section-title">👤 個別人員月休天數目標/上限</div>
+        <div class="rule-section-desc">每人獨立對應最少與最多天數</div>
+        <div id="staffTargetList"></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let staffList = [
+  { name: "全明正", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "吳駿毅", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "阿文", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "謝嘉昌", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "鐘孝謙", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "阿勳", type: "ramen", minRest: 0, maxRest: 0 },
+  { name: "禹伯海", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "阿志", type: "normal", minRest: 0, maxRest: 0 },
+  { name: "阿明", type: "aming", minRest: 0, maxRest: 0 },
+  { name: "經理", type: "manager", minRest: 0, maxRest: 0 },
+  { name: "曉芳", type: "hsiaofang", minRest: 0, maxRest: 0 },
+  { name: "阿燁", type: "normal", minRest: 0, maxRest: 0 }
+];
+
+let mutexRules = [
+  { a: "全明正", b: "吳駿毅" },
+  { a: "鐘孝謙", b: "謝嘉昌" },
+  { a: "阿文", b: "阿勳" }
+];
+
+let scheduleData = {};
+let cellElements = {}; 
+const daysInMonth = 31;
+const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
+
+const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
+const hsiaofangShifts = ["", "休", "03:00~10:00", "03:00~12:00", "02:30~10:00"];
+
+window.onload = function() {
+  initTable();
+  renderRulesModal();
+  runAudit();
+
+  document.getElementById('yearSelect').addEventListener('change', updateTitle);
+  document.getElementById('monthSelect').addEventListener('change', updateTitle);
+};
+
+function updateTitle() {
+  document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
+  document.getElementById('displayMonth').innerText = document.getElementById('monthSelect').value;
+}
+
+function initTable() {
+  const headerRowName = document.getElementById('headerRowName');
+  const headerRowDay = document.getElementById('headerRowDay');
+  const tableBody = document.getElementById('tableBody');
+
+  headerRowName.innerHTML = '<th class="col-sticky">姓名 / 日期</th>';
+  headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
+  tableBody.innerHTML = '';
+  cellElements = {};
+
+  let startDayOfWeek = 4; // 115年10月1日為星期四
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = weekDays[(startDayOfWeek + d - 1) % 7];
+    const isWeekend = (dayOfWeek === "六" || dayOfWeek === "日");
+    
+    const thDay = document.createElement('th');
+    thDay.innerText = d;
+    if (isWeekend) thDay.classList.add('weekend');
+    headerRowName.appendChild(thDay);
+
+    const thW = document.createElement('th');
+    thW.innerText = dayOfWeek;
+    if (isWeekend) thW.classList.add('weekend');
+    headerRowDay.appendChild(thW);
+  }
+
+  staffList.forEach(staff => {
+    if (!scheduleData[staff.name]) scheduleData[staff.name] = {};
+    if (!cellElements[staff.name]) cellElements[staff.name] = {};
+
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.className = 'col-sticky';
+    tdName.innerText = staff.name;
+    tr.appendChild(tdName);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const td = document.createElement('td');
+      td.className = 'cell-cell';
+      cellElements[staff.name][d] = td;
+
+      const currentVal = scheduleData[staff.name][d] || "";
+      updateCellDisplay(td, currentVal, staff.name, d);
+
+      td.onclick = () => {
+        let newVal = "";
+        const val = scheduleData[staff.name][d] || "";
+
+        if (staff.type === 'aming') {
+          let idx = amingShifts.indexOf(val);
+          newVal = amingShifts[(idx + 1) % amingShifts.length];
+        } else if (staff.type === 'hsiaofang') {
+          let idx = hsiaofangShifts.indexOf(val);
+          newVal = hsiaofangShifts[(idx + 1) % hsiaofangShifts.length];
+        } else if (staff.type === 'manager') {
+          newVal = (val === "支援") ? "" : "支援";
+        } else {
+          newVal = (val === "休") ? "" : "休";
+        }
+
+        scheduleData[staff.name][d] = newVal;
+        refreshTableStyles();
+        runAudit();
+      };
+
+      tr.appendChild(td);
+    }
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function hasMutexConflict(staffName, day) {
+  const val = scheduleData[staffName] ? scheduleData[staffName][day] : "";
+  if (val !== '休') return false;
+
+  for (let rule of mutexRules) {
+    if (rule.a === staffName) {
+      const otherVal = scheduleData[rule.b] ? scheduleData[rule.b][day] : "";
+      if (otherVal === '休') return true;
+    } else if (rule.b === staffName) {
+      const otherVal = scheduleData[rule.a] ? scheduleData[rule.a][day] : "";
+      if (otherVal === '休') return true;
+    }
+  }
+  return false;
+}
+
+function updateCellDisplay(td, val, staffName, day) {
+  td.classList.remove('cell-rest', 'cell-support', 'cell-conflict');
+
+  const isConflict = hasMutexConflict(staffName, day);
+
+  if (isConflict) {
+    td.classList.add('cell-conflict');
+    td.innerText = val ? val : '休';
+  } else if (val === '休') {
+    td.classList.add('cell-rest');
+    td.innerText = '休';
+  } else if (val === '支援') {
+    td.classList.add('cell-support');
+    td.innerText = '支援';
+  } else if (!val) {
+    td.innerText = '—';
+  } else {
+    td.innerText = val;
+  }
+}
+
+function refreshTableStyles() {
+  staffList.forEach(staff => {
+    for (let d = 1; d <= daysInMonth; d++) {
+      const td = cellElements[staff.name] && cellElements[staff.name][d];
+      if (td) {
+        const val = scheduleData[staff.name] ? scheduleData[staff.name][d] : "";
+        updateCellDisplay(td, val, staff.name, d);
+      }
+    }
+  });
+}
+
+function runAudit() {
+  const auditList = document.getElementById('auditList');
+  let logs = [];
+
+  // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
+  for (let d = 1; d <= daysInMonth; d++) {
+    let activeRamenCount = 0;
+    ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
+      if (!scheduleData[name] || scheduleData[name][d] !== '休') {
+        activeRamenCount++;
+      }
+    });
+
+    if (d >= 16) {
+      if (!scheduleData['吳駿毅'] || scheduleData['吳駿毅'][d] !== '休') {
+        activeRamenCount++;
+      }
+    }
+
+    if (activeRamenCount < 2) {
+      logs.push(`<span class="audit-item-error">⚠️ 10月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
+    }
+  }
+
+  // 2. 休假互斥檢核
+  for (let d = 1; d <= daysInMonth; d++) {
+    mutexRules.forEach(rule => {
+      const valA = scheduleData[rule.a] ? scheduleData[rule.a][d] : "";
+      const valB = scheduleData[rule.b] ? scheduleData[rule.b][d] : "";
+      if (valA === "休" && valB === "休") {
+        logs.push(`<span class="audit-item-error">🚫 10月 ${d} 日 衝突：${rule.a} 與 ${rule.b} 同日休假</span>`);
+      }
+    });
+  }
+
+  // 3. 個別月休天數檢核
+  staffList.forEach(staff => {
+    let restDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (scheduleData[staff.name] && scheduleData[staff.name][d] === '休') {
+        restDays++;
+      }
+    }
+    if (staff.minRest > 0 && restDays < staff.minRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
+    } else if (staff.maxRest > 0 && restDays > staff.maxRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
+    }
+  });
+
+  if (logs.length === 0) {
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
+  } else {
+    auditList.innerHTML = logs.join('<br>');
+  }
+}
+
+function openRuleModal() {
+  renderRulesModal();
+  document.getElementById('ruleModal').style.display = 'flex';
+}
+
+function closeRuleModal() {
+  document.getElementById('ruleModal').style.display = 'none';
+}
+
+function renderRulesModal() {
+  const mutexA = document.getElementById('mutexA');
+  const mutexB = document.getElementById('mutexB');
+  mutexA.innerHTML = '';
+  mutexB.innerHTML = '';
+
+  staffList.forEach(s => {
+    mutexA.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    mutexB.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+  });
+
+  const mutexList = document.getElementById('mutexList');
+  mutexList.innerHTML = '';
+  mutexRules.forEach((m, idx) => {
+    mutexList.innerHTML += `
+      <div class="mutex-item">
+        <span>🚫 ${m.a} ↔ ${m.b} (不能同日休假)</span>
+        <span class="delete-btn" onclick="removeMutex(${idx})">🗑️</span>
+      </div>
+    `;
+  });
+
+  const staffTargetList = document.getElementById('staffTargetList');
+  staffTargetList.innerHTML = '';
+  staffList.forEach((s, idx) => {
+    staffTargetList.innerHTML += `
+      <div class="staff-target-card">
+        <b>${s.name}</b>
+        <div class="staff-target-inputs">
+          最少 <input type="number" id="min_${idx}" value="${s.minRest}"> 天，
+          最多 <input type="number" id="max_${idx}" value="${s.maxRest}"> 天
+        </div>
+      </div>
+    `;
+  });
+}
+
+function addMutex() {
+  const a = document.getElementById('mutexA').value;
+  const b = document.getElementById('mutexB').value;
+  if (a === b) {
+    alert("請選擇不同的兩人！");
+    return;
+  }
+  mutexRules.push({ a, b });
+  renderRulesModal();
+  refreshTableStyles();
+  runAudit();
+}
+
+function removeMutex(idx) {
+  mutexRules.splice(idx, 1);
+  renderRulesModal();
+  refreshTableStyles();
+  runAudit();
+}
+
+function saveRules() {
+  staffList.forEach((s, idx) => {
+    const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
+    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 0;
+    s.minRest = minVal;
+    s.maxRest = maxVal;
+  });
+
+  closeRuleModal();
+  refreshTableStyles();
+  runAudit();
+  alert("排假規則與參數設定已成功儲存並套用！");
+}
+
+function addNewStaff() {
+  const name = prompt("請輸入新人員姓名：");
+  if (name) {
+    staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0 });
+    initTable();
+    runAudit();
+  }
+}
+
+function shareOrExport() {
+  window.print();
+}
+</script>
+</body>
+</html>
