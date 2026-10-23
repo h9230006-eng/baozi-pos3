@@ -630,8 +630,8 @@ function isRamenStaff(staffName, day) {
     return true;
   }
   if (staffName === '阿明') {
-    const val = scheduleData['阿明'] ? scheduleData['阿明'][day] : "";
-    return val.startsWith('03:00~07:00'); // 有點選 03:00~07:00 也是拉麵人員
+    const val = scheduleData['阿明'] && scheduleData['阿明'][day] ? scheduleData['阿明'][day] : "";
+    return typeof val === 'string' && val.startsWith('03:00~07:00'); // 有點選 03:00~07:00 也是拉麵人員
   }
   return false;
 }
@@ -668,7 +668,6 @@ function updateCellDisplay(td, val, staffName, day) {
     td.classList.add('cell-support');
   }
 
-  // 關鍵修復：把文字（休/班別/空白）真正顯示在畫面上
   td.innerText = val ? val : '';
 }
 
