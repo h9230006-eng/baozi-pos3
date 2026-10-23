@@ -162,6 +162,7 @@ th.col-sticky {
   font-size: 0.7rem;
   font-weight: bold;
   line-height: 1.25;
+  white-space: pre-line;
 }
 
 .cell-rest {
@@ -414,7 +415,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（互斥衝突時格子會自動變為醒目紅色）。
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（阿明、曉芳支援多行完整顯示；互斥衝突時格子會自動變紅）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -502,7 +503,7 @@ let mutexRules = [
 ];
 
 let scheduleData = {};
-let cellElements = {}; // 記錄每個格子 DOM 元素方便即時更新顏色
+let cellElements = {}; 
 const daysInMonth = 31;
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -596,7 +597,6 @@ function initTable() {
   });
 }
 
-// 檢查特定人員在特定日期是否觸發互斥衝突
 function hasMutexConflict(staffName, day) {
   const val = scheduleData[staffName] ? scheduleData[staffName][day] : "";
   if (val !== '休') return false;
@@ -634,7 +634,6 @@ function updateCellDisplay(td, val, staffName, day) {
   }
 }
 
-// 重新整理整張表的格子顏色（當任一人異動時，確保互斥夥伴的格子也能同步變紅/變回綠色）
 function refreshTableStyles() {
   staffList.forEach(staff => {
     for (let d = 1; d <= daysInMonth; d++) {
@@ -651,17 +650,17 @@ function runAudit() {
   const auditList = document.getElementById('auditList');
   let logs = [];
 
-  // 1. 拉麵人員檢核 (阿勳、阿文、鍾孝謙全月；吳駿毅 16 日起)
+  // 1. 拉麵人員檢核 (阿勳、阿文、鐘孝謙全月；吳駿毅 16 日起)
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = 0;
     ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
-      if (scheduleData[name] && scheduleData[name][d] !== '休' && scheduleData[name][d] !== '') {
+      if (!scheduleData[name] || scheduleData[name][d] !== '休') {
         activeRamenCount++;
       }
     });
 
     if (d >= 16) {
-      if (scheduleData['吳駿毅'] && scheduleData['吳駿毅'][d] !== '休' && scheduleData['吳駿毅'][d] !== '') {
+      if (!scheduleData['吳駿毅'] || scheduleData['吳駿毅'][d] !== '休') {
         activeRamenCount++;
       }
     }
