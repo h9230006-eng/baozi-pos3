@@ -120,14 +120,14 @@ body {
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 1400px;
+  min-width: 1300px;
   text-align: center;
 }
 
 th, td {
   border: 1px solid var(--border-color);
-  padding: 4px 2px;
-  font-size: 0.85rem;
+  padding: 2px;
+  font-size: 0.8rem;
 }
 
 th {
@@ -152,13 +152,17 @@ th.col-sticky {
   z-index: 3;
 }
 
-/* 欄位寬度精簡為 95px，高度適中 44px */
+/* 兩行高度空間 (58px)，寬度 100px，完美顯示兩行文字 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
-  min-width: 95px;
-  height: 44px;
+  min-width: 100px;
+  height: 58px;
   vertical-align: middle;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.25;
 }
 
 .cell-rest {
@@ -171,19 +175,6 @@ th.col-sticky {
   background-color: var(--support-bg) !important;
   color: var(--support-text) !important;
   font-weight: bold;
-}
-
-/* 字體縮小為 0.65rem，確保長文字順暢顯示 */
-select.shift-select {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: transparent;
-  text-align: center;
-  font-size: 0.65rem;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 0;
 }
 
 .weekend {
@@ -391,7 +382,7 @@ select.shift-select {
 <body>
 
 <div class="card">
-  <h1>🏠 麥德加專業饅頭 苗栗店</h1>
+  <h1>🏠 苗栗店 - 麥德加專業饅頭</h1>
   <div class="subtitle">智慧輪休排班與人力檢核系統</div>
   
   <div class="date-selector">
@@ -416,7 +407,7 @@ select.shift-select {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：一般同仁長按/點選顯示「休」；經理點選顯示「支援」；阿明與曉芳請使用專屬下拉選單。
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（阿明與曉芳支援多行完整班別顯示）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -507,6 +498,10 @@ let scheduleData = {};
 const daysInMonth = 31;
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
+// 阿明與曉芳的專屬循環選項清單
+const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
+const hsiaofangShifts = ["", "休", "03:00~10:00", "03:00~12:00", "02:30~10:00"];
+
 window.onload = function() {
   initTable();
   renderRulesModal();
@@ -561,66 +556,28 @@ function initTable() {
       td.className = 'cell-cell';
       const currentVal = scheduleData[staff.name][d] || "";
 
-      if (staff.type === 'aming') {
-        const select = document.createElement('select');
-        select.className = 'shift-select';
-        const amingOptions = [
-          { val: '', label: '—' },
-          { val: '休', label: '休假' },
-          { val: '03:00~07:00', label: '03:00~07:00' },
-          { val: '03:00~07:00 發麵休息', label: '03:00~07:00 發麵休息' },
-          { val: '10:00~15:00', label: '10:00~15:00' }
-        ];
-        amingOptions.forEach(opt => {
-          const o = document.createElement('option');
-          o.value = opt.val;
-          o.innerText = opt.label;
-          if (currentVal === opt.val) o.selected = true;
-          select.appendChild(o);
-        });
-        select.onchange = (e) => {
-          scheduleData[staff.name][d] = e.target.value;
-          updateCellClass(td, e.target.value);
-          runAudit();
-        };
-        td.appendChild(select);
-        updateCellClass(td, currentVal);
+      updateCellDisplay(td, currentVal, staff.type);
 
-      } else if (staff.type === 'hsiaofang') {
-        const select = document.createElement('select');
-        select.className = 'shift-select';
-        ['', '03:00~10:00', '03:00~12:00', '02:30~10:00', '休'].forEach(opt => {
-          const o = document.createElement('option');
-          o.value = opt;
-          o.innerText = opt || '—';
-          if (currentVal === opt) o.selected = true;
-          select.appendChild(o);
-        });
-        select.onchange = (e) => {
-          scheduleData[staff.name][d] = e.target.value;
-          updateCellClass(td, e.target.value);
-          runAudit();
-        };
-        td.appendChild(select);
-        updateCellClass(td, currentVal);
+      td.onclick = () => {
+        let newVal = "";
+        const val = scheduleData[staff.name][d] || "";
 
-      } else {
-        td.innerText = currentVal;
-        updateCellClass(td, currentVal);
+        if (staff.type === 'aming') {
+          let idx = amingShifts.indexOf(val);
+          newVal = amingShifts[(idx + 1) % amingShifts.length];
+        } else if (staff.type === 'hsiaofang') {
+          let idx = hsiaofangShifts.indexOf(val);
+          newVal = hsiaofangShifts[(idx + 1) % hsiaofangShifts.length];
+        } else if (staff.type === 'manager') {
+          newVal = (val === "支援") ? "" : "支援";
+        } else {
+          newVal = (val === "休") ? "" : "休";
+        }
 
-        td.onclick = () => {
-          let newVal = "";
-          if (staff.type === 'manager') {
-            newVal = (scheduleData[staff.name][d] === "支援") ? "" : "支援";
-          } else {
-            newVal = (scheduleData[staff.name][d] === "休") ? "" : "休";
-          }
-          scheduleData[staff.name][d] = newVal;
-          td.innerText = newVal;
-          updateCellClass(td, newVal);
-          runAudit();
-        };
-      }
+        scheduleData[staff.name][d] = newVal;
+        updateCellDisplay(td, newVal, staff.type);
+        runAudit();
+      };
 
       tr.appendChild(td);
     }
@@ -629,10 +586,22 @@ function initTable() {
   });
 }
 
-function updateCellClass(td, val) {
+function updateCellDisplay(td, val, type) {
   td.classList.remove('cell-rest', 'cell-support');
-  if (val === '休') td.classList.add('cell-rest');
-  if (val === '支援') td.classList.add('cell-support');
+  
+  // 檢查是否為休假（包含阿明、曉芳選到「休」或一般員工）
+  if (val === '休') {
+    td.classList.add('cell-rest');
+    td.innerText = '休';
+  } else if (val === '支援') {
+    td.classList.add('cell-support');
+    td.innerText = '支援';
+  } else if (!val) {
+    td.innerText = '—';
+  } else {
+    // 支援多行完整顯示
+    td.innerText = val;
+  }
 }
 
 function runAudit() {
@@ -643,13 +612,13 @@ function runAudit() {
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = 0;
     ['阿勳', '阿文', '鐘孝謙'].forEach(name => {
-      if (scheduleData[name] && scheduleData[name][d] !== '休') {
+      if (scheduleData[name] && scheduleData[name][d] !== '休' && scheduleData[name][d] !== '') {
         activeRamenCount++;
       }
     });
 
     if (d >= 16) {
-      if (scheduleData['吳駿毅'] && scheduleData['吳駿毅'][d] !== '休') {
+      if (scheduleData['吳駿毅'] && scheduleData['吳駿毅'][d] !== '休' && scheduleData['吳駿毅'][d] !== '') {
         activeRamenCount++;
       }
     }
