@@ -135,7 +135,7 @@ table {
 th, td {
   border: 1px solid var(--border-color);
   padding: 2px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 
 th {
@@ -145,32 +145,51 @@ th {
   white-space: nowrap;
 }
 
+/* 1. 姓名欄位直書優化 */
 .col-sticky {
   position: sticky;
   left: 0;
   background: white;
   z-index: 2;
   font-weight: bold;
-  min-width: 80px;
+  width: 55px !important;
+  min-width: 55px !important;
+  max-width: 55px !important;
   box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+  vertical-align: middle;
+  text-align: center;
+}
+
+.staff-name-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 2px;
+  margin: 0 auto;
+  display: inline-block;
+  font-size: 0.85rem;
 }
 
 th.col-sticky {
   background: var(--table-header);
   z-index: 3;
+  writing-mode: horizontal-tb;
+  font-size: 0.75rem;
 }
 
+/* 2. 日期格子寬度與內文不重疊優化 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
-  min-width: 100px;
-  height: 58px;
+  min-width: 42px;
+  height: 52px;
   vertical-align: middle;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
-  line-height: 1.25;
+  line-height: 1.15;
   white-space: pre-line;
+  word-break: break-all;
+  padding: 1px;
 }
 
 .cell-rest {
@@ -198,19 +217,24 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
+/* 3. 休假天數欄位加寬與不換行優化 */
 .cell-summary-col {
   background-color: #f9fafb;
   font-weight: bold;
   color: #1f2937;
-  min-width: 75px;
+  width: 85px !important;
+  min-width: 85px !important;
+  white-space: nowrap !important;
   vertical-align: middle;
+  text-align: center;
 }
 
+/* 4. 底部統計列樣式 */
 .summary-row {
   background-color: var(--summary-bg);
   color: var(--summary-text);
   font-weight: bold;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   height: 36px;
 }
 
@@ -452,12 +476,12 @@ th.col-sticky {
   border-radius: 8px;
 }
 
-/* 離屏隱藏 PDF 轉繪區 */
+/* 5. 專用離屏 PDF 繪製區（擴寬至 1500px，確保 1~31日 + 寬欄位完美舒展） */
 #pdfExportArea {
   position: absolute;
   left: -9999px;
   top: -9999px;
-  width: 1280px !important;
+  width: 1500px !important;
   background: #ffffff;
   padding: 15px;
   box-sizing: border-box;
@@ -465,7 +489,7 @@ th.col-sticky {
 
 #pdfExportArea table {
   width: 100% !important;
-  table-layout: fixed !important;
+  table-layout: auto !important;
 }
 
 #pdfExportArea .col-sticky {
@@ -495,8 +519,8 @@ th.col-sticky {
     <select id="monthSelect">
       <option value="1">1</option><option value="2">2</option><option value="3">3</option>
       <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-      <option value="7">7</option><option value="8">8</option><option value="9" selected>9</option>
-      <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+      <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+      <option value="10" selected>10</option><option value="11">11</option><option value="12">12</option>
     </select> 月
   </div>
 
@@ -512,14 +536,14 @@ th.col-sticky {
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
-  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">9</span> 月 輪休排班表
+  苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">10</span> 月 輪休排班表
 </div>
 
 <div class="table-container" id="mainTableArea">
   <table id="scheduleTable">
     <thead>
       <tr id="headerRowName">
-        <th class="col-sticky">姓名 / 日期</th>
+        <th class="col-sticky">姓名/日期</th>
       </tr>
       <tr id="headerRowDay">
         <th class="col-sticky">星期</th>
@@ -673,7 +697,7 @@ function initTable() {
   const headerRowDay = document.getElementById('headerRowDay');
   const tableBody = document.getElementById('tableBody');
 
-  headerRowName.innerHTML = '<th class="col-sticky">姓名 / 日期</th>';
+  headerRowName.innerHTML = '<th class="col-sticky">姓名/日期</th>';
   headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
   tableBody.innerHTML = '';
   cellElements = {};
@@ -701,10 +725,12 @@ function initTable() {
 
   const thRestName = document.createElement('th');
   thRestName.innerText = '休假天數';
+  thRestName.style.width = '85px';
   headerRowName.appendChild(thRestName);
 
   const thRestDay = document.createElement('th');
   thRestDay.innerText = '總計';
+  thRestDay.style.width = '85px';
   headerRowDay.appendChild(thRestDay);
 
   staffList.forEach(staff => {
@@ -714,7 +740,9 @@ function initTable() {
     const tr = document.createElement('tr');
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
-    tdName.innerText = staff.name;
+    
+    // 套用姓名直書模式
+    tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tr.appendChild(tdName);
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -779,7 +807,7 @@ function initSummary() {
   tdRestLabel.className = 'col-sticky';
   tdRestLabel.style.backgroundColor = 'var(--summary-bg)';
   tdRestLabel.style.zIndex = '2';
-  tdRestLabel.innerText = '當日休假人數';
+  tdRestLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日休假人數</span>';
   trRest.appendChild(tdRestLabel);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -788,9 +816,12 @@ function initSummary() {
     td.innerText = '0人';
     trRest.appendChild(td);
   }
+  
+  // 交叉點：保持空格（不顯示 65天）
   const tdRestTotal = document.createElement('td');
   tdRestTotal.id = 'summary_total_rest';
-  tdRestTotal.innerText = '0天';
+  tdRestTotal.innerText = ''; 
+  tdRestTotal.className = 'cell-summary-col';
   trRest.appendChild(tdRestTotal);
   tableFoot.appendChild(trRest);
 
@@ -801,7 +832,7 @@ function initSummary() {
   tdWorkLabel.className = 'col-sticky';
   tdWorkLabel.style.backgroundColor = 'var(--summary-bg)';
   tdWorkLabel.style.zIndex = '2';
-  tdWorkLabel.innerText = '當日上班人數';
+  tdWorkLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日上班人數</span>';
   trWork.appendChild(tdWorkLabel);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -811,7 +842,8 @@ function initSummary() {
     trWork.appendChild(td);
   }
   const tdWorkTotal = document.createElement('td');
-  tdWorkTotal.innerText = '-';
+  tdWorkTotal.innerText = '';
+  tdWorkTotal.className = 'cell-summary-col';
   trWork.appendChild(tdWorkTotal);
   tableFoot.appendChild(trWork);
 }
@@ -819,7 +851,6 @@ function initSummary() {
 function updateSummary() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
-  let totalMonthlyRest = 0;
 
   staffList.forEach(staff => {
     let restDays = 0;
@@ -835,7 +866,6 @@ function updateSummary() {
         }
       }
     }
-    totalMonthlyRest += restDays;
     const restCountEl = document.getElementById(`rest_count_${staff.name}`);
     if (restCountEl) {
       restCountEl.innerText = `${restDays}天`;
@@ -873,11 +903,6 @@ function updateSummary() {
 
     if (restCell) restCell.innerText = restCount > 0 ? `${restCount}人` : '0人';
     if (workCell) workCell.innerText = `${workCount}人`;
-  }
-
-  const totalRestCell = document.getElementById('summary_total_rest');
-  if (totalRestCell) {
-    totalRestCell.innerText = `${totalMonthlyRest}天`;
   }
 }
 
@@ -1128,9 +1153,9 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 離屏渲染產生 100% 完整 A4 橫式 PDF */
+/* 離屏渲染產生高解析度、滿版 A4 橫式 PDF */
 function downloadPDF() {
-  alert("正在生成 A4 滿版排班表（1~31日 + 人員 + 稽核狀況），請稍候 2 秒...");
+  alert("正在生成高解析度 A4 滿版排班表，請稍候 2 秒...");
 
   const exportArea = document.getElementById('pdfExportArea');
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
@@ -1149,7 +1174,7 @@ function downloadPDF() {
   html2canvas(exportArea, {
     scale: 2,
     useCORS: true,
-    width: 1280
+    width: 1500
   }).then(canvas => {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
