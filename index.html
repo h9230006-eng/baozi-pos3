@@ -408,6 +408,52 @@ th.col-sticky {
   font-weight: bold;
   cursor: pointer;
 }
+
+/* ==========================================
+   A4 橫式列印與全畫面匯出最佳化樣式設定
+   ================================---------- */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+  body {
+    background: white !important;
+    padding: 0 !important;
+  }
+  .card {
+    background: none !important;
+    color: black !important;
+    box-shadow: none !important;
+    padding: 5px 0 !important;
+    margin-bottom: 5px !important;
+  }
+  .card h1, .card .subtitle, .card .date-selector {
+    color: black !important;
+    background: none !important;
+    border: none !important;
+  }
+  .date-selector select {
+    border: 1px solid #333 !important;
+    background: white !important;
+  }
+  /* 列印時隱藏操作按鈕、說明與即時檢核區 */
+  .btn-group, .notice-box, .audit-box, .modal-overlay {
+    display: none !important;
+  }
+  .table-container {
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+  table {
+    width: 100% !important;
+    font-size: 0.75rem !important;
+  }
+  th, td {
+    padding: 2px !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -677,7 +723,7 @@ function initSummary() {
   tableFoot.innerHTML = '';
   const daysInMonth = getDaysInCurrentMonth();
 
-  // 1. 當日休假人數 (校正名稱)
+  // 1. 當日休假人數
   const trRest = document.createElement('tr');
   trRest.className = 'summary-row';
   const tdRestLabel = document.createElement('td');
@@ -748,19 +794,15 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
-      // 當日休假人數：僅計算點選「休」的人員
       if (val === '休') {
         restCount++;
       }
 
-      // 當日上班人數：
-      // 1. 經理 (manager)：需點選「支援」才計入上班
       if (staff.type === 'manager') {
         if (val === '支援') {
           workCount++;
         }
       } else {
-        // 2. 其他正職人員：只要不是「休」，就計入上班人數
         if (val !== '休') {
           workCount++;
         }
