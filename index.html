@@ -508,7 +508,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可切換班別（一般人員點 1 次休、點 2 次發）。
+  💡 <b>操作說明</b>：點擊格子即可切換班別（全明正與吳駿毅點 1 次休、點 2 次發；其他人點 1 次休）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -622,8 +622,9 @@ const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
 const hsiaofangShifts = ["", "休", "03:00~10:00", "03:00~12:00", "02:30~10:00"];
-const managerShifts = ["", "休", "支援"];
-const standardShifts = ["", "休", "發"];
+const managerShifts = ["", "支援"];
+const faShifts = ["", "休", "發"];
+const standardShifts = ["", "休"];
 
 window.onload = function() {
   initTable();
@@ -737,6 +738,9 @@ function initTable() {
         } else if (staff.type === 'manager') {
           let idx = managerShifts.indexOf(val);
           newVal = managerShifts[(idx + 1) % managerShifts.length];
+        } else if (staff.name === '全明正' || staff.name === '吳駿毅') {
+          let idx = faShifts.indexOf(val);
+          newVal = faShifts[(idx + 1) % faShifts.length];
         } else {
           let idx = standardShifts.indexOf(val);
           newVal = standardShifts[(idx + 1) % standardShifts.length];
@@ -822,7 +826,7 @@ function updateSummary() {
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (staff.type === 'manager') {
-        if (val === '休' || val === '支援') {
+        if (val === '支援') {
           restDays++;
         }
       } else {
@@ -845,14 +849,14 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
-      // 當日休假人數 (曉芳和阿明不計入休假人數)
+      // 當日休假人數 (曉芳、阿明不計入休假人數)
       if (val === '休') {
         if (staff.name !== '曉芳' && staff.name !== '阿明') {
           restCount++;
         }
       }
 
-      // 當日上班人數
+      // 當日上班人數 (經理空白算上班，其他人員非休假就算上班)
       if (staff.type === 'manager') {
         if (val === '') {
           workCount++;
@@ -920,7 +924,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val !== '休') {
         count++;
       }
@@ -998,7 +1002,7 @@ function runAudit() {
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (staff.type === 'manager') {
-        if (val === '休' || val === '支援') restDays++;
+        if (val === '支援') restDays++;
       } else {
         if (val === '休') restDays++;
       }
@@ -1124,7 +1128,7 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 離屏渲染（Off-screen Render）產生 100% 完整 A4 橫式 PDF */
+/* 離屏渲染產生 100% 完整 A4 橫式 PDF */
 function downloadPDF() {
   alert("正在生成 A4 滿版排班表（1~31日 + 人員 + 稽核狀況），請稍候 2 秒...");
 
