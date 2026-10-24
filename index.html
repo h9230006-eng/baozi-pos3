@@ -438,7 +438,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（會自動依照所選年份與月份計算天數與星期）。
+  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（經理需點選支援才計入上班人數）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -529,7 +529,6 @@ let mutexRules = [
   { a: "阿文", b: "阿勳" }
 ];
 
-// 支援跨月份儲存排班資料：scheduleData[year_month][staffName][day]
 let scheduleData = {};
 let cellElements = {}; 
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
@@ -610,7 +609,6 @@ function initTable() {
     headerRowDay.appendChild(thW);
   }
 
-  // 每一行最後面增加「休假天數」欄位標題
   const thRestName = document.createElement('th');
   thRestName.innerText = '休假天數';
   headerRowName.appendChild(thRestName);
@@ -661,7 +659,6 @@ function initTable() {
       tr.appendChild(td);
     }
 
-    // 每個人最後面加入休假天數統計格
     const tdRestCount = document.createElement('td');
     tdRestCount.className = 'cell-summary-col';
     tdRestCount.id = `rest_count_${staff.name}`;
@@ -680,14 +677,14 @@ function initSummary() {
   tableFoot.innerHTML = '';
   const daysInMonth = getDaysInCurrentMonth();
 
-  // 1. 每日休假人員總計
+  // 1. 當日休假人數 (校正名稱)
   const trRest = document.createElement('tr');
   trRest.className = 'summary-row';
   const tdRestLabel = document.createElement('td');
   tdRestLabel.className = 'col-sticky';
   tdRestLabel.style.backgroundColor = 'var(--summary-bg)';
   tdRestLabel.style.zIndex = '2';
-  tdRestLabel.innerText = '每日休假人員總計';
+  tdRestLabel.innerText = '當日休假人數';
   trRest.appendChild(tdRestLabel);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -715,7 +712,7 @@ function initSummary() {
   for (let d = 1; d <= daysInMonth; d++) {
     const td = document.createElement('td');
     td.id = `summary_work_${d}`;
-    td.innerText = staffList.length + '人';
+    td.innerText = '0人';
     trWork.appendChild(td);
   }
   const tdWorkTotal = document.createElement('td');
@@ -746,14 +743,29 @@ function updateSummary() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     let restCount = 0;
+    let workCount = 0;
+
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      
+      // 休假總數：僅計算明確標記為「休」的人員
       if (val === '休') {
         restCount++;
       }
-    });
 
-    const workCount = staffList.length - restCount;
+      // 當日上班人數判定：
+      // 1. 若為經理 (manager)：只有點選「支援」才算上班，空白不算
+      if (staff.type === 'manager') {
+        if (val === '支援') {
+          workCount++;
+        }
+      } else {
+        // 2. 一般/其他人員：只要不是「休」，就算上班（包含有排班或空白未休假者）
+        if (val !== '休') {
+          workCount++;
+        }
+      }
+    });
 
     const restCell = document.getElementById(`summary_rest_${d}`);
     const workCell = document.getElementById(`summary_work_${d}`);
@@ -785,17 +797,16 @@ function hasMutexConflict(staffName, day) {
   return false;
 }
 
-// 判斷特定人員在特定日期是否為拉麵人員
 function isRamenStaff(staffName, day) {
   if (['阿勳', '阿文', '鐘孝謙'].includes(staffName)) {
     return true;
   }
   if (staffName === '吳駿毅') {
-    if (day < 16) return false; // 前半個月不是
+    if (day < 16) return false;
     const startDayOfWeek = getStartDayOfWeek();
     const dayOfWeek = (startDayOfWeek + day - 1) % 7;
     if (dayOfWeek === 4 || dayOfWeek === 5) {
-      return false; // 後半個月的星期四和星期五也不是
+      return false;
     }
     return true;
   }
@@ -812,7 +823,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val !== '休') {
         count++;
       }
@@ -866,7 +877,6 @@ function runAudit() {
   const monthKey = getMonthKey();
   const currentMonthStr = document.getElementById('monthSelect').value;
 
-  // 1. 拉麵人員檢核
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
@@ -874,7 +884,6 @@ function runAudit() {
     }
   }
 
-  // 2. 休假互斥檢核
   for (let d = 1; d <= daysInMonth; d++) {
     mutexRules.forEach(rule => {
       const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
@@ -885,7 +894,6 @@ function runAudit() {
     });
   }
 
-  // 3. 個別月休天數檢核
   staffList.forEach(staff => {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
