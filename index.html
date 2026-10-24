@@ -222,7 +222,7 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 點擊姓名後，該員工同列對應尚可排假的空格變綠色 */
+/* 點擊姓名後，該員工同列對應尚可排假的空格變亮綠色 */
 .cell-available {
   background-color: var(--available-bg) !important;
   border: 2px solid var(--available-border) !important;
@@ -408,33 +408,6 @@ th.col-sticky {
   margin-left: 8px;
 }
 
-.staff-target-card {
-  background: #fffdf5;
-  border: 1px solid #fef08a;
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-}
-
-.staff-target-inputs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85rem;
-}
-
-.staff-target-inputs input {
-  width: 45px;
-  padding: 4px;
-  text-align: center;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
 .modal-footer {
   padding: 12px 16px;
   background: #f9fafb;
@@ -543,7 +516,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名，該員工自己那列**尚可安心排休的空白格子會變亮綠色**（姓名欄位本身維持白色不變色）；再點一次姓名即可取消。
+  💡 <b>操作說明</b>：點擊人員姓名，該員工整個月**尚可安心排休的空白格子會變亮綠色**（姓名欄位保持白色不變色）；再點一次即可取消[span_2](start_span)[span_2](end_span)。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -613,34 +586,27 @@ th.col-sticky {
         <div id="mutexList"></div>
       </div>
 
-      <!-- 個別人員月休天數 -->
-      <div class="rule-section">
-        <div class="rule-section-title">👤 個別人員月休天數目標/上限</div>
-        <div class="rule-section-desc">每人獨立對應最少與最多天數</div>
-        <div id="staffTargetList"></div>
-      </div>
-
     </div>
     <div class="modal-footer">
-      <button class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
+      <button class="btn-save-rules" onclick="closeRuleModal()">完成並關閉</button>
     </div>
   </div>
 </div>
 
 <script>
 let staffList = [
-  { name: "全明正", type: "normal", minRest: 0, maxRest: 0 },
-  { name: "吳駿毅", type: "ramen", minRest: 0, maxRest: 0 },
-  { name: "阿文", type: "ramen", minRest: 0, maxRest: 0 },
-  { name: "謝嘉昌", type: "normal", minRest: 0, maxRest: 0 },
-  { name: "鐘孝謙", type: "ramen", minRest: 0, maxRest: 0 },
-  { name: "阿勳", type: "ramen", minRest: 0, maxRest: 0 },
-  { name: "禹伯海", type: "normal", minRest: 0, maxRest: 0 },
-  { name: "阿志", type: "normal", minRest: 0, maxRest: 0 },
-  { name: "阿明", type: "aming", minRest: 0, maxRest: 0 },
-  { name: "經理", type: "manager", minRest: 0, maxRest: 0 },
-  { name: "曉芳", type: "hsiaofang", minRest: 0, maxRest: 0 },
-  { name: "阿燁", type: "normal", minRest: 0, maxRest: 0 }
+  { name: "全明正", type: "normal" },
+  { name: "吳駿毅", type: "ramen" },
+  { name: "阿文", type: "ramen" },
+  { name: "謝嘉昌", type: "normal" },
+  { name: "鐘孝謙", type: "ramen" },
+  { name: "阿勳", type: "ramen" },
+  { name: "禹伯海", type: "normal" },
+  { name: "阿志", type: "normal" },
+  { name: "阿明", type: "aming" },
+  { name: "經理", type: "manager" },
+  { name: "曉芳", type: "hsiaofang" },
+  { name: "阿燁", type: "normal" }
 ];
 
 let mutexRules = [
@@ -774,7 +740,7 @@ function initTable() {
     tdName.className = 'col-sticky';
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     
-    // 點擊姓名：切換該員工列的高亮顯示（姓名本身維持白色不變色）
+    // 點擊姓名：切換該員工列的高亮顯示（姓名保持白色不變色）
     tdName.onclick = () => {
       if (activeHighlightedStaff === staff.name) {
         activeHighlightedStaff = null;
@@ -1033,7 +999,6 @@ function updateCellDisplay(td, val, staffName, day) {
   } else if (val === '發') {
     td.classList.add('cell-fa');
   } else if (activeHighlightedStaff === staffName && val === '') {
-    // 嚴格比對：只有當前被點擊的那位員工自己那列的空白格子才會高亮
     if (canStaffTakeRestSafely(staffName, day)) {
       td.classList.add('cell-available');
     }
@@ -1085,25 +1050,8 @@ function runAudit() {
     });
   }
 
-  staffList.forEach(staff => {
-    let restDays = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      if (staff.type === 'manager') {
-        if (val === '支援') restDays++;
-      } else {
-        if (val === '休') restDays++;
-      }
-    }
-    if (staff.minRest > 0 && restDays < staff.minRest) {
-      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
-    } else if (staff.maxRest > 0 && restDays > staff.maxRest) {
-      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
-    }
-  });
-
   if (logs.length === 0) {
-    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假互斥與拉麵人力稽核均符合標準。</span>';
   } else {
     auditList.innerHTML = logs.join('<br>');
   }
@@ -1139,20 +1087,6 @@ function renderRulesModal() {
       </div>
     `;
   });
-
-  const staffTargetList = document.getElementById('staffTargetList');
-  staffTargetList.innerHTML = '';
-  staffList.forEach((s, idx) => {
-    staffTargetList.innerHTML += `
-      <div class="staff-target-card">
-        <b>${s.name}</b>
-        <div class="staff-target-inputs">
-          最少 <input type="number" id="min_${idx}" value="${s.minRest}"> 天，
-          最多 <input type="number" id="max_${idx}" value="${s.maxRest}"> 天
-        </div>
-      </div>
-    `;
-  });
 }
 
 function addMutex() {
@@ -1177,25 +1111,10 @@ function removeMutex(idx) {
   runAudit();
 }
 
-function saveRules() {
-  staffList.forEach((s, idx) => {
-    const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
-    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 0;
-    s.minRest = minVal;
-    s.maxRest = maxVal;
-  });
-
-  saveToStorage();
-  closeRuleModal();
-  refreshTableStyles();
-  runAudit();
-  alert("排假規則與參數設定已成功儲存並套用！");
-}
-
 function addNewStaff() {
   const name = prompt("請輸入新人員姓名：");
   if (name) {
-    staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0 });
+    staffList.push({ name: name, type: "normal" });
     saveToStorage();
     initTable();
     runAudit();
