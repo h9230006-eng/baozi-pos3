@@ -748,19 +748,19 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
-      // 休假總數：僅計算明確標記為「休」的人員
+      // 當日休假人數：僅計算點選「休」的人員
       if (val === '休') {
         restCount++;
       }
 
-      // 當日上班人數判定：
-      // 1. 若為經理 (manager)：只有點選「支援」才算上班，空白不算
+      // 當日上班人數：
+      // 1. 經理 (manager)：需點選「支援」才計入上班
       if (staff.type === 'manager') {
         if (val === '支援') {
           workCount++;
         }
       } else {
-        // 2. 一般/其他人員：只要不是「休」，就算上班（包含有排班或空白未休假者）
+        // 2. 其他正職人員：只要不是「休」，就計入上班人數
         if (val !== '休') {
           workCount++;
         }
@@ -823,7 +823,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
       if (val !== '休') {
         count++;
       }
