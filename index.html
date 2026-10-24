@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
+
+<!-- 引入 HTML 轉 PDF 必備的開源套件 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
 :root {
   --primary-bg: #f5f0eb;
@@ -502,10 +507,10 @@ th.col-sticky {
 <!-- 全畫面預覽 Modal -->
 <div class="print-modal-overlay" id="printModal">
   <div class="print-modal-toolbar">
-    <span style="font-weight: bold; font-size: 0.95rem;">📄 A4 橫式全畫面預覽（可直接截圖）</span>
+    <span style="font-weight: bold; font-size: 0.9rem;">📄 全畫面預覽（可直接下載）</span>
     <div>
-      <button onclick="trySystemPrint()" style="padding: 5px 10px; background: #059669; color: white; border: none; border-radius: 4px; font-weight: bold; margin-right: 5px; cursor: pointer;">🖨️ 列印/轉PDF</button>
-      <button onclick="closePrintModal()" style="padding: 5px 10px; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">✕ 關閉</button>
+      <button onclick="downloadPDF()" style="padding: 6px 12px; background: #059669; color: white; border: none; border-radius: 4px; font-weight: bold; margin-right: 5px; cursor: pointer;">📄 儲存為 PDF</button>
+      <button onclick="closePrintModal()" style="padding: 6px 12px; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">✕ 關閉</button>
     </div>
   </div>
   <div class="print-preview-container" id="printPreviewContent">
@@ -1045,11 +1050,11 @@ function addNewStaff() {
   }
 }
 
-/* 點擊「📥 匯出/列印」：同步複製「排班表」與「稽核狀況區」至全畫面預覽中 */
+/* 點擊「📥 匯出/列印」：跳出全畫面預覽視窗 */
 function shareOrExport() {
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
   const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
-  const titleText = `<h3>苗栗店 - 麥德加專業饅頭 ${document.getElementById('displayYear').innerText} 年 ${document.getElementById('displayMonth').innerText} 月 輪休排班表</h3><br>`;
+  const titleText = `<h3 style="margin-bottom:10px;">苗栗店 - 麥德加專業饅頭 ${document.getElementById('displayYear').innerText} 年 ${document.getElementById('displayMonth').innerText} 月 輪休排班表</h3>`;
   
   const printPreviewContent = document.getElementById('printPreviewContent');
   printPreviewContent.innerHTML = titleText;
@@ -1063,8 +1068,31 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-function trySystemPrint() {
-  window.print();
+/* 真正的 PDF 手機自動生成與下載功能 */
+function downloadPDF() {
+  alert("正在為您打包產生 A4 橫式 PDF 檔案，請稍候約 2~3 秒...");
+  
+  const element = document.getElementById('printPreviewContent');
+  
+  html2canvas(element, {
+    scale: 2, // 提高解析度
+    useCORS: true
+  }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    
+    // 設定為 A4 橫向 (landscape)
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const imgWidth = 280; // A4 橫向可用寬度
+    const pageHeight = 200;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    pdf.addImage(imgData, 'PNG', 8, 8, imgWidth, imgHeight);
+    
+    const year = document.getElementById('displayYear').innerText;
+    const month = document.getElementById('displayMonth').innerText;
+    pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
+  });
 }
 </script>
 </body>
