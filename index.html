@@ -27,8 +27,8 @@
   --alert-text: #991b1b;
   --summary-bg: #fef9c3;
   --summary-text: #713f12;
-  --available-bg: #ecfdf5; /* 可排休高亮背景 */
-  --available-border: #10b981; /* 可排休高亮外框 */
+  --available-bg: #bbf7d0; /* 可排休空格高亮亮綠色 */
+  --available-border: #16a34a;
 }
 
 * {
@@ -147,7 +147,7 @@ th {
   white-space: nowrap;
 }
 
-/* 姓名欄位直書優化與可點擊樣式 */
+/* 姓名欄位直書優化與點擊提示 */
 .col-sticky {
   position: sticky;
   left: 0;
@@ -161,11 +161,6 @@ th {
   vertical-align: middle;
   text-align: center;
   cursor: pointer;
-}
-
-.col-sticky-active {
-  background-color: #fde68a !important;
-  border: 2px solid #b45309 !important;
 }
 
 .staff-name-text {
@@ -226,11 +221,11 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 可排休高亮綠色 */
+/* 可排休當天空格變色（高亮綠色底+濃綠框） */
 .cell-available {
   background-color: var(--available-bg) !important;
-  border: 2px dashed var(--available-border) !important;
-  color: #047857;
+  border: 2px solid var(--available-border) !important;
+  color: #14532d;
 }
 
 /* 休假天數欄位 */
@@ -491,7 +486,7 @@ th.col-sticky {
   border-radius: 8px;
 }
 
-/* 專用離屏 PDF 繪製區 */
+/* 離屏 PDF 轉繪區 */
 #pdfExportArea {
   position: absolute;
   left: -9999px;
@@ -547,7 +542,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名可高亮顯示當月可安心排休的綠色空格；點擊格子即可切換班別。
+  💡 <b>操作說明</b>：點擊人員姓名可讓該員工當月**尚可安心排休的空白天數格子變綠色**；再點一次姓名即可取消。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -759,7 +754,7 @@ function initTable() {
     tdName.className = 'col-sticky';
     tdName.id = `staff_col_${staff.name}`;
     
-    // 姓名直書模式 + 點擊姓名切換高亮模式
+    // 姓名直書 + 點擊姓名觸發「個人排休空格變色」
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
@@ -816,9 +811,9 @@ function initTable() {
 
 function toggleStaffHighlight(staffName) {
   if (activeHighlightedStaff === staffName) {
-    activeHighlightedStaff = null; // 再次點擊恢復原本顏色
+    activeHighlightedStaff = null; // 再次點擊姓名，取消空格高亮
   } else {
-    activeHighlightedStaff = staffName; // 切換至選取該人員
+    activeHighlightedStaff = staffName; // 點擊姓名，觸發該員空格高亮
   }
   refreshTableStyles();
 }
@@ -916,10 +911,7 @@ function updateSummary() {
         }
       }
 
-      // 當日上班人數計算規則：
-      // 1. 經理：只有點選「支援」才計算在上班人數，空白不算
-      // 2. 曉芳：空白不算，必須有排班才算
-      // 3. 其他人員：非休假就算上班
+      // 當日上班人數計算：經理與曉芳空白不算，經理點「支援」才算
       if (staff.type === 'manager') {
         if (val === '支援') {
           workCount++;
@@ -1000,12 +992,12 @@ function hasRamenShortage(staffName, day) {
   return getRamenActiveCount(day) < 2;
 }
 
-/* 測試某員工在某天如果排休，是否會造成任何衝突或人力不足 */
+/* 測試某員工在某天如果排休，是否符合稽核標準不觸發衝突 */
 function canStaffTakeRestSafely(staffName, day) {
   const monthKey = getMonthKey();
   const originalVal = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
   
-  // 1. 測試互斥
+  // 1. 測試休假互斥
   for (let rule of mutexRules) {
     if (rule.a === staffName) {
       const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
@@ -1018,7 +1010,6 @@ function canStaffTakeRestSafely(staffName, day) {
 
   // 2. 測試拉麵人力
   if (isRamenStaff(staffName, day)) {
-    // 假設該員工休假後，當天的拉麵在勤人數
     let activeRamen = 0;
     staffList.forEach(s => {
       if (isRamenStaff(s.name, day)) {
@@ -1047,7 +1038,7 @@ function updateCellDisplay(td, val, staffName, day) {
   } else if (val === '發') {
     td.classList.add('cell-fa');
   } else if (activeHighlightedStaff === staffName && val === '') {
-    // 點擊姓名高亮模式：若該空白格符合稽核標準，高亮顯示淡綠色
+    // 當前點選該人員姓名時，將該人員「當天可安心排休的空白格子」變亮綠色
     if (canStaffTakeRestSafely(staffName, day)) {
       td.classList.add('cell-available');
     }
@@ -1061,16 +1052,6 @@ function refreshTableStyles() {
   const monthKey = getMonthKey();
 
   staffList.forEach(staff => {
-    // 切換姓名標題欄的高亮樣式
-    const nameCol = document.getElementById(`staff_col_${staff.name}`);
-    if (nameCol) {
-      if (activeHighlightedStaff === staff.name) {
-        nameCol.classList.add('col-sticky-active');
-      } else {
-        nameCol.classList.remove('col-sticky-active');
-      }
-    }
-
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
