@@ -410,48 +410,87 @@ th.col-sticky {
 }
 
 /* ==========================================
-   A4 橫式列印與全畫面匯出最佳化樣式設定
+   A4 橫式全畫面截圖/列印 最佳化設定
    ================================---------- */
 @media print {
   @page {
     size: A4 landscape;
-    margin: 8mm;
+    margin: 5mm;
   }
-  body {
+  
+  html, body {
+    width: 100% !important;
+    height: 100% !important;
     background: white !important;
     padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
   }
+
+  /* 隱藏不必要的UI按鈕與說明區塊 */
+  .btn-group, .notice-box, .audit-box, .modal-overlay {
+    display: none !important;
+  }
+
   .card {
     background: none !important;
     color: black !important;
     box-shadow: none !important;
-    padding: 5px 0 !important;
+    padding: 0 0 5px 0 !important;
     margin-bottom: 5px !important;
   }
-  .card h1, .card .subtitle, .card .date-selector {
-    color: black !important;
+
+  .card h1 {
+    font-size: 1.1rem !important;
+    color: #6e3a1e !important;
+  }
+
+  .card .subtitle {
+    font-size: 0.8rem !important;
+    color: #555 !important;
+  }
+
+  .date-selector {
     background: none !important;
-    border: none !important;
+    padding: 0 !important;
+    margin-bottom: 5px !important;
+    color: black !important;
   }
+
   .date-selector select {
-    border: 1px solid #333 !important;
+    border: 1px solid #ccc !important;
     background: white !important;
+    color: black !important;
   }
-  /* 列印時隱藏操作按鈕、說明與即時檢核區 */
-  .btn-group, .notice-box, .audit-box, .modal-overlay {
-    display: none !important;
-  }
+
+  /* 強制將表格縮放至單張 A4 橫向滿版內 */
   .table-container {
+    overflow: visible !important;
     box-shadow: none !important;
     border: none !important;
-    overflow: visible !important;
+    width: 100% !important;
   }
+
   table {
     width: 100% !important;
-    font-size: 0.75rem !important;
+    table-layout: fixed !important;
+    font-size: 0.68rem !important;
   }
+
   th, td {
-    padding: 2px !important;
+    padding: 1px !important;
+    height: auto !important;
+    word-break: break-all;
+  }
+
+  .col-sticky {
+    position: static !important;
+    box-shadow: none !important;
+  }
+
+  .cell-cell {
+    height: 28px !important;
+    font-size: 0.65rem !important;
   }
 }
 </style>
