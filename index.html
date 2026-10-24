@@ -924,7 +924,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
       if (val !== '休') {
         count++;
       }
