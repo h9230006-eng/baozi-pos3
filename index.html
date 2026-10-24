@@ -516,7 +516,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名，該員工整個月**尚可安心排休的空白格子會變亮綠色**（姓名欄位保持白色不變色）；再點一次即可取消[span_2](start_span)[span_2](end_span)。
+  💡 <b>操作說明</b>：點擊人員姓名，該員工整個月**尚可安心排休的空白格子會變亮綠色**（姓名欄位保持白色不變色）；再點一次即可取消[span_0](start_span)[span_0](end_span)。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -958,20 +958,10 @@ function hasRamenShortage(staffName, day) {
 }
 
 function canStaffTakeRestSafely(staffName, day) {
-  const monthKey = getMonthKey();
-  
-  for (let rule of mutexRules) {
-    if (rule.a === staffName) {
-      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
-      if (otherVal === '休') return false;
-    } else if (rule.b === staffName) {
-      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
-      if (otherVal === '休') return false;
-    }
-  }
-
+  // 修改後：點擊姓名高亮時，只看該員工自己的拉麵人力需求與是否已有排班，不再被其他人的休假連動綁死
   if (isRamenStaff(staffName, day)) {
     let activeRamen = 0;
+    const monthKey = getMonthKey();
     staffList.forEach(s => {
       if (isRamenStaff(s.name, day)) {
         const v = (s.name === staffName) ? "休" : (scheduleData[monthKey] && scheduleData[monthKey][s.name] ? scheduleData[monthKey][s.name][day] : "");
@@ -980,7 +970,6 @@ function canStaffTakeRestSafely(staffName, day) {
     });
     if (activeRamen < 2) return false;
   }
-
   return true;
 }
 
