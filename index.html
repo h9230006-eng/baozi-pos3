@@ -145,7 +145,7 @@ th {
   white-space: nowrap;
 }
 
-/* 1. 姓名欄位直書優化 */
+/* 姓名欄位直書優化 */
 .col-sticky {
   position: sticky;
   left: 0;
@@ -176,7 +176,7 @@ th.col-sticky {
   font-size: 0.75rem;
 }
 
-/* 2. 日期格子寬度與內文不重疊優化 */
+/* 日期格子寬度與內文不重疊優化 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
@@ -217,7 +217,7 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 3. 休假天數欄位加寬與不換行優化 */
+/* 休假天數欄位加寬與不換行優化 */
 .cell-summary-col {
   background-color: #f9fafb;
   font-weight: bold;
@@ -229,7 +229,6 @@ th.col-sticky {
   text-align: center;
 }
 
-/* 4. 底部統計列樣式 */
 .summary-row {
   background-color: var(--summary-bg);
   color: var(--summary-text);
@@ -476,7 +475,7 @@ th.col-sticky {
   border-radius: 8px;
 }
 
-/* 5. 專用離屏 PDF 繪製區（擴寬至 1500px，確保 1~31日 + 寬欄位完美舒展） */
+/* 專用離屏 PDF 繪製區 */
 #pdfExportArea {
   position: absolute;
   left: -9999px;
@@ -741,7 +740,7 @@ function initTable() {
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     
-    // 套用姓名直書模式
+    // 姓名直書模式
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tr.appendChild(tdName);
 
@@ -817,7 +816,7 @@ function initSummary() {
     trRest.appendChild(td);
   }
   
-  // 交叉點：保持空格（不顯示 65天）
+  // 交叉點保持空格
   const tdRestTotal = document.createElement('td');
   tdRestTotal.id = 'summary_total_rest';
   tdRestTotal.innerText = ''; 
@@ -886,9 +885,16 @@ function updateSummary() {
         }
       }
 
-      // 當日上班人數 (經理空白算上班，其他人員非休假就算上班)
+      // 當日上班人數計算規則：
+      // 1. 經理：只有點選「支援」才計算在上班人數，空白不算
+      // 2. 曉芳：空白不算，必須有排班才算
+      // 3. 其他人員：非休假就算上班
       if (staff.type === 'manager') {
-        if (val === '') {
+        if (val === '支援') {
+          workCount++;
+        }
+      } else if (staff.name === '曉芳') {
+        if (val !== '' && val !== '休') {
           workCount++;
         }
       } else {
