@@ -1050,7 +1050,7 @@ function addNewStaff() {
   }
 }
 
-/* 點擊「📥 匯出/列印」：跳出全畫面預覽視窗 */
+/* 點擊「📥 匯出/列印」：開啟預覽彈窗 */
 function shareOrExport() {
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
   const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
@@ -1068,27 +1068,55 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 真正的 PDF 手機自動生成與下載功能 */
+/* 解除橫向捲軸限制，將「100% 完整寬度與高度」繪製成 A4 橫式 PDF 下載 */
 function downloadPDF() {
-  alert("正在為您打包產生 A4 橫式 PDF 檔案，請稍候約 2~3 秒...");
-  
-  const element = document.getElementById('printPreviewContent');
-  
-  html2canvas(element, {
-    scale: 2, // 提高解析度
-    useCORS: true
+  alert("正在為您打包整張排班表（1~31日全滿版），請稍候約 2~3 秒...");
+
+  const previewContent = document.getElementById('printPreviewContent');
+  const tableContainer = previewContent.querySelector('.table-container');
+
+  // 1. 備份原始樣式
+  const originalOverflow = tableContainer.style.overflow;
+  const originalWidth = tableContainer.style.width;
+
+  // 2. 暫時展開表格至滿版全寬（無視手機螢幕縮放限制）
+  tableContainer.style.overflow = 'visible';
+  tableContainer.style.width = 'auto';
+
+  // 3. 進行整頁畫面擷取
+  html2canvas(previewContent, {
+    scale: 2, // 提高清析度
+    useCORS: true,
+    windowWidth: previewContent.scrollWidth,
+    windowHeight: previewContent.scrollHeight
   }).then(canvas => {
+    // 4. 恢復原樣
+    tableContainer.style.overflow = originalOverflow;
+    tableContainer.style.width = originalWidth;
+
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
-    
-    // 設定為 A4 橫向 (landscape)
+
+    // 建立 A4 橫式 PDF ('l' = landscape, 尺寸 297mm x 210mm)
     const pdf = new jsPDF('l', 'mm', 'a4');
-    const imgWidth = 280; // A4 橫向可用寬度
-    const pageHeight = 200;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'PNG', 8, 8, imgWidth, imgHeight);
-    
+    const pdfWidth = 297;
+    const pdfHeight = 210;
+    const margin = 5;
+
+    const printableWidth = pdfWidth - (margin * 2);
+    const printableHeight = pdfHeight - (margin * 2);
+
+    // 自動按比例縮放圖片，確保 100% 全部放入單頁 A4 中
+    let imgWidth = printableWidth;
+    let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    if (imgHeight > printableHeight) {
+      imgHeight = printableHeight;
+      imgWidth = (canvas.width * imgHeight) / canvas.height;
+    }
+
+    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+
     const year = document.getElementById('displayYear').innerText;
     const month = document.getElementById('displayMonth').innerText;
     pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
