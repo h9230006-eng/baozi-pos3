@@ -147,7 +147,7 @@ th {
   white-space: nowrap;
 }
 
-/* 姓名欄位直書優化與點擊提示 */
+/* 姓名欄位直書優化與點擊觸發樣式 */
 .col-sticky {
   position: sticky;
   left: 0;
@@ -163,6 +163,11 @@ th {
   cursor: pointer;
 }
 
+.col-sticky-active {
+  background-color: #fde68a !important;
+  border: 2px solid #b45309 !important;
+}
+
 .staff-name-text {
   writing-mode: vertical-rl;
   text-orientation: upright;
@@ -170,6 +175,7 @@ th {
   margin: 0 auto;
   display: inline-block;
   font-size: 0.85rem;
+  pointer-events: none; /* 讓點擊事件完整傳遞至儲存格 */
 }
 
 th.col-sticky {
@@ -353,7 +359,7 @@ th.col-sticky {
 }
 
 .rule-section-desc {
-  font-size: 0.8rem;
+  font-size: 0.80rem;
   color: #666;
   margin-bottom: 10px;
 }
@@ -542,7 +548,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名可讓該員工當月**尚可安心排休的空白天數格子變綠色**；再點一次姓名即可取消。
+  💡 <b>操作說明</b>：點擊人員姓名（姓名會變黃色外框），該員工當月**尚可安心排休的空白格子會變綠色**；再點一次姓名即可取消。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -652,7 +658,7 @@ let mutexRules = [
 
 let scheduleData = {};
 let cellElements = {}; 
-let activeHighlightedStaff = null; // 當前被點擊選取的人員姓名
+let activeHighlightedStaff = null; 
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
@@ -754,7 +760,7 @@ function initTable() {
     tdName.className = 'col-sticky';
     tdName.id = `staff_col_${staff.name}`;
     
-    // 姓名直書 + 點擊姓名觸發「個人排休空格變色」
+    // 點擊姓名儲存格觸發高亮切換
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
@@ -811,9 +817,9 @@ function initTable() {
 
 function toggleStaffHighlight(staffName) {
   if (activeHighlightedStaff === staffName) {
-    activeHighlightedStaff = null; // 再次點擊姓名，取消空格高亮
+    activeHighlightedStaff = null; 
   } else {
-    activeHighlightedStaff = staffName; // 點擊姓名，觸發該員空格高亮
+    activeHighlightedStaff = staffName; 
   }
   refreshTableStyles();
 }
@@ -841,7 +847,6 @@ function initSummary() {
     trRest.appendChild(td);
   }
   
-  // 交叉點保持空格
   const tdRestTotal = document.createElement('td');
   tdRestTotal.id = 'summary_total_rest';
   tdRestTotal.innerText = ''; 
@@ -904,14 +909,12 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
-      // 當日休假人數 (曉芳、阿明不計入休假人數)
       if (val === '休') {
         if (staff.name !== '曉芳' && staff.name !== '阿明') {
           restCount++;
         }
       }
 
-      // 當日上班人數計算：經理與曉芳空白不算，經理點「支援」才算
       if (staff.type === 'manager') {
         if (val === '支援') {
           workCount++;
@@ -978,7 +981,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val !== '休') {
         count++;
       }
@@ -995,7 +998,6 @@ function hasRamenShortage(staffName, day) {
 /* 測試某員工在某天如果排休，是否符合稽核標準不觸發衝突 */
 function canStaffTakeRestSafely(staffName, day) {
   const monthKey = getMonthKey();
-  const originalVal = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
   
   // 1. 測試休假互斥
   for (let rule of mutexRules) {
@@ -1052,6 +1054,16 @@ function refreshTableStyles() {
   const monthKey = getMonthKey();
 
   staffList.forEach(staff => {
+    // 同步更新姓名欄位的點選高亮狀態
+    const nameCol = document.getElementById(`staff_col_${staff.name}`);
+    if (nameCol) {
+      if (activeHighlightedStaff === staff.name) {
+        nameCol.classList.add('col-sticky-active');
+      } else {
+        nameCol.classList.remove('col-sticky-active');
+      }
+    }
+
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
