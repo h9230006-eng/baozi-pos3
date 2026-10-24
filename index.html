@@ -147,7 +147,7 @@ th {
   white-space: nowrap;
 }
 
-/* 姓名欄位直書優化與點擊觸發樣式 */
+/* 姓名欄位維持純白背景，不變色 */
 .col-sticky {
   position: sticky;
   left: 0;
@@ -161,11 +161,6 @@ th {
   vertical-align: middle;
   text-align: center;
   cursor: pointer;
-}
-
-.col-sticky-active {
-  background-color: #fde68a !important;
-  border: 2px solid #b45309 !important;
 }
 
 .staff-name-text {
@@ -227,7 +222,7 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 可排休當天空格變色（高亮綠色底+濃綠框） */
+/* 點擊姓名後，該列符合排假的空格變亮綠色 */
 .cell-available {
   background-color: var(--available-bg) !important;
   border: 2px solid var(--available-border) !important;
@@ -548,7 +543,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名（姓名會變黃色外框），該員工當月**尚可安心排休的空白格子會變綠色**；再點一次姓名即可取消。
+  💡 <b>操作說明</b>：點擊人員姓名，該員工當月**尚可安心排休的空白格子會變亮綠色**（姓名本身維持原樣不變色）；再點一次姓名即可取消。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -683,7 +678,6 @@ window.onload = function() {
   });
 };
 
-/* 自動儲存與讀取 localStorage 功能 */
 function saveToStorage() {
   try {
     localStorage.setItem('maidega_schedule', JSON.stringify(scheduleData));
@@ -781,6 +775,7 @@ function initTable() {
     tdName.className = 'col-sticky';
     tdName.id = `staff_col_${staff.name}`;
     
+    // 點擊姓名儲存格觸發該列空格高亮
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
@@ -1055,15 +1050,6 @@ function refreshTableStyles() {
   const monthKey = getMonthKey();
 
   staffList.forEach(staff => {
-    const nameCol = document.getElementById(`staff_col_${staff.name}`);
-    if (nameCol) {
-      if (activeHighlightedStaff === staff.name) {
-        nameCol.classList.add('col-sticky-active');
-      } else {
-        nameCol.classList.remove('col-sticky-active');
-      }
-    }
-
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
