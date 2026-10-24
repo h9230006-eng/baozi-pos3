@@ -406,7 +406,7 @@ th.col-sticky {
   cursor: pointer;
 }
 
-/* 專為手機端設計的「全畫面預覽彈窗」樣式 */
+/* 全畫面預覽彈窗樣式 */
 .print-modal-overlay {
   display: none;
   position: fixed;
@@ -492,7 +492,7 @@ th.col-sticky {
   </table>
 </div>
 
-<div class="audit-box">
+<div class="audit-box" id="mainAuditArea">
   <div class="audit-title">🔍 每日人力與規則稽核狀況</div>
   <div class="audit-list" id="auditList">
     尚無異常。
@@ -509,7 +509,7 @@ th.col-sticky {
     </div>
   </div>
   <div class="print-preview-container" id="printPreviewContent">
-    <!-- 複製主表格至此 -->
+    <!-- 複製主表格與稽核結果至此 -->
   </div>
 </div>
 
@@ -1045,14 +1045,16 @@ function addNewStaff() {
   }
 }
 
-/* 點擊「📥 匯出/列印」：跳出全畫面預覽 Modal */
+/* 點擊「📥 匯出/列印」：同步複製「排班表」與「稽核狀況區」至全畫面預覽中 */
 function shareOrExport() {
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
+  const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
   const titleText = `<h3>苗栗店 - 麥德加專業饅頭 ${document.getElementById('displayYear').innerText} 年 ${document.getElementById('displayMonth').innerText} 月 輪休排班表</h3><br>`;
   
   const printPreviewContent = document.getElementById('printPreviewContent');
   printPreviewContent.innerHTML = titleText;
   printPreviewContent.appendChild(tableContent);
+  printPreviewContent.appendChild(auditContent);
 
   document.getElementById('printModal').style.display = 'block';
 }
