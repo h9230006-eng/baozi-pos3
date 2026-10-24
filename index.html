@@ -768,13 +768,13 @@ function initTable() {
     if (!scheduleData[monthKey][staff.name]) scheduleData[monthKey][staff.name] = {};
 
     const tr = document.createElement('tr');
-    tr.setAttribute('data-staff', staff.name); // 將員工姓名直接綁定在整行 tr 上
+    tr.setAttribute('data-staff', staff.name);
 
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     
-    // 點擊姓名：切換該員工的高亮狀態
+    // 點擊姓名：切換該員工列的高亮顯示（姓名本身維持白色不變色）
     tdName.onclick = () => {
       if (activeHighlightedStaff === staff.name) {
         activeHighlightedStaff = null;
@@ -979,7 +979,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
       if (val !== '休') count++;
     }
   });
@@ -1033,7 +1033,7 @@ function updateCellDisplay(td, val, staffName, day) {
   } else if (val === '發') {
     td.classList.add('cell-fa');
   } else if (activeHighlightedStaff === staffName && val === '') {
-    // 透過當前行所屬的員工名稱進行嚴格驗證與高亮
+    // 嚴格比對：只有當前被點擊的那位員工自己那列的空白格子才會高亮
     if (canStaffTakeRestSafely(staffName, day)) {
       td.classList.add('cell-available');
     }
@@ -1046,7 +1046,6 @@ function refreshTableStyles() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
 
-  // 透過 DOM 直接尋找每位員工的行，進行精準更新
   staffList.forEach(staff => {
     const tr = document.querySelector(`tr[data-staff="${staff.name}"]`);
     if (!tr) return;
