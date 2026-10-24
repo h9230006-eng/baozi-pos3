@@ -27,6 +27,8 @@
   --alert-text: #991b1b;
   --summary-bg: #fef9c3;
   --summary-text: #713f12;
+  --available-bg: #ecfdf5; /* 可排休高亮背景 */
+  --available-border: #10b981; /* 可排休高亮外框 */
 }
 
 * {
@@ -145,7 +147,7 @@ th {
   white-space: nowrap;
 }
 
-/* 姓名欄位直書優化 */
+/* 姓名欄位直書優化與可點擊樣式 */
 .col-sticky {
   position: sticky;
   left: 0;
@@ -158,6 +160,12 @@ th {
   box-shadow: 2px 0 4px rgba(0,0,0,0.05);
   vertical-align: middle;
   text-align: center;
+  cursor: pointer;
+}
+
+.col-sticky-active {
+  background-color: #fde68a !important;
+  border: 2px solid #b45309 !important;
 }
 
 .staff-name-text {
@@ -174,9 +182,10 @@ th.col-sticky {
   z-index: 3;
   writing-mode: horizontal-tb;
   font-size: 0.75rem;
+  cursor: default;
 }
 
-/* 日期格子寬度與內文不重疊優化 */
+/* 日期格子樣式 */
 .cell-cell {
   cursor: pointer;
   user-select: none;
@@ -217,7 +226,14 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 休假天數欄位加寬與不換行優化 */
+/* 可排休高亮綠色 */
+.cell-available {
+  background-color: var(--available-bg) !important;
+  border: 2px dashed var(--available-border) !important;
+  color: #047857;
+}
+
+/* 休假天數欄位 */
 .cell-summary-col {
   background-color: #f9fafb;
   font-weight: bold;
@@ -531,7 +547,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可切換班別（全明正與吳駿毅點 1 次休、點 2 次發；其他人點 1 次休）。
+  💡 <b>操作說明</b>：點擊人員姓名可高亮顯示當月可安心排休的綠色空格；點擊格子即可切換班別。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -641,6 +657,7 @@ let mutexRules = [
 
 let scheduleData = {};
 let cellElements = {}; 
+let activeHighlightedStaff = null; // 當前被點擊選取的人員姓名
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
@@ -700,6 +717,7 @@ function initTable() {
   headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
   tableBody.innerHTML = '';
   cellElements = {};
+  activeHighlightedStaff = null;
 
   const daysInMonth = getDaysInCurrentMonth();
   const startDayOfWeek = getStartDayOfWeek();
@@ -739,9 +757,11 @@ function initTable() {
     const tr = document.createElement('tr');
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
+    tdName.id = `staff_col_${staff.name}`;
     
-    // 姓名直書模式
+    // 姓名直書模式 + 點擊姓名切換高亮模式
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
+    tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -794,6 +814,15 @@ function initTable() {
   updateSummary();
 }
 
+function toggleStaffHighlight(staffName) {
+  if (activeHighlightedStaff === staffName) {
+    activeHighlightedStaff = null; // 再次點擊恢復原本顏色
+  } else {
+    activeHighlightedStaff = staffName; // 切換至選取該人員
+  }
+  refreshTableStyles();
+}
+
 function initSummary() {
   const tableFoot = document.getElementById('tableFoot');
   tableFoot.innerHTML = '';
@@ -806,6 +835,7 @@ function initSummary() {
   tdRestLabel.className = 'col-sticky';
   tdRestLabel.style.backgroundColor = 'var(--summary-bg)';
   tdRestLabel.style.zIndex = '2';
+  tdRestLabel.style.cursor = 'default';
   tdRestLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日休假人數</span>';
   trRest.appendChild(tdRestLabel);
 
@@ -831,6 +861,7 @@ function initSummary() {
   tdWorkLabel.className = 'col-sticky';
   tdWorkLabel.style.backgroundColor = 'var(--summary-bg)';
   tdWorkLabel.style.zIndex = '2';
+  tdWorkLabel.style.cursor = 'default';
   tdWorkLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日上班人數</span>';
   trWork.appendChild(tdWorkLabel);
 
@@ -969,8 +1000,40 @@ function hasRamenShortage(staffName, day) {
   return getRamenActiveCount(day) < 2;
 }
 
+/* 測試某員工在某天如果排休，是否會造成任何衝突或人力不足 */
+function canStaffTakeRestSafely(staffName, day) {
+  const monthKey = getMonthKey();
+  const originalVal = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
+  
+  // 1. 測試互斥
+  for (let rule of mutexRules) {
+    if (rule.a === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
+      if (otherVal === '休') return false;
+    } else if (rule.b === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
+      if (otherVal === '休') return false;
+    }
+  }
+
+  // 2. 測試拉麵人力
+  if (isRamenStaff(staffName, day)) {
+    // 假設該員工休假後，當天的拉麵在勤人數
+    let activeRamen = 0;
+    staffList.forEach(s => {
+      if (isRamenStaff(s.name, day)) {
+        const v = (s.name === staffName) ? "休" : (scheduleData[monthKey] && scheduleData[monthKey][s.name] ? scheduleData[monthKey][s.name][day] : "");
+        if (v !== '休') activeRamen++;
+      }
+    });
+    if (activeRamen < 2) return false;
+  }
+
+  return true;
+}
+
 function updateCellDisplay(td, val, staffName, day) {
-  td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict');
+  td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict', 'cell-available');
 
   const isMutex = hasMutexConflict(staffName, day);
   const isRamenErr = hasRamenShortage(staffName, day);
@@ -983,6 +1046,11 @@ function updateCellDisplay(td, val, staffName, day) {
     td.classList.add('cell-support');
   } else if (val === '發') {
     td.classList.add('cell-fa');
+  } else if (activeHighlightedStaff === staffName && val === '') {
+    // 點擊姓名高亮模式：若該空白格符合稽核標準，高亮顯示淡綠色
+    if (canStaffTakeRestSafely(staffName, day)) {
+      td.classList.add('cell-available');
+    }
   }
 
   td.innerText = val ? val : '';
@@ -993,6 +1061,16 @@ function refreshTableStyles() {
   const monthKey = getMonthKey();
 
   staffList.forEach(staff => {
+    // 切換姓名標題欄的高亮樣式
+    const nameCol = document.getElementById(`staff_col_${staff.name}`);
+    if (nameCol) {
+      if (activeHighlightedStaff === staff.name) {
+        nameCol.classList.add('col-sticky-active');
+      } else {
+        nameCol.classList.remove('col-sticky-active');
+      }
+    }
+
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
