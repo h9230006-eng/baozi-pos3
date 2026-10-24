@@ -178,7 +178,6 @@ th.col-sticky {
   font-weight: bold;
 }
 
-/* 衝突與人力不足紅框高亮樣式 */
 .cell-conflict {
   background-color: var(--alert-bg) !important;
   color: var(--alert-text) !important;
@@ -186,7 +185,6 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 個人總計休假天數欄位樣式 */
 .cell-summary-col {
   background-color: #f9fafb;
   font-weight: bold;
@@ -195,7 +193,6 @@ th.col-sticky {
   vertical-align: middle;
 }
 
-/* 底部統計列樣式 */
 .summary-row {
   background-color: var(--summary-bg);
   color: var(--summary-text);
@@ -409,89 +406,37 @@ th.col-sticky {
   cursor: pointer;
 }
 
-/* ==========================================
-   A4 橫式全畫面截圖/列印 最佳化設定
-   ================================---------- */
-@media print {
-  @page {
-    size: A4 landscape;
-    margin: 5mm;
-  }
-  
-  html, body {
-    width: 100% !important;
-    height: 100% !important;
-    background: white !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: visible !important;
-  }
+/* 專為手機端設計的「全畫面預覽彈窗」樣式 */
+.print-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: #ffffff;
+  z-index: 2000;
+  overflow: auto;
+  padding: 10px;
+}
 
-  /* 隱藏不必要的UI按鈕與說明區塊 */
-  .btn-group, .notice-box, .audit-box, .modal-overlay {
-    display: none !important;
-  }
+.print-modal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #6e3a1e;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 2001;
+}
 
-  .card {
-    background: none !important;
-    color: black !important;
-    box-shadow: none !important;
-    padding: 0 0 5px 0 !important;
-    margin-bottom: 5px !important;
-  }
-
-  .card h1 {
-    font-size: 1.1rem !important;
-    color: #6e3a1e !important;
-  }
-
-  .card .subtitle {
-    font-size: 0.8rem !important;
-    color: #555 !important;
-  }
-
-  .date-selector {
-    background: none !important;
-    padding: 0 !important;
-    margin-bottom: 5px !important;
-    color: black !important;
-  }
-
-  .date-selector select {
-    border: 1px solid #ccc !important;
-    background: white !important;
-    color: black !important;
-  }
-
-  /* 強制將表格縮放至單張 A4 橫向滿版內 */
-  .table-container {
-    overflow: visible !important;
-    box-shadow: none !important;
-    border: none !important;
-    width: 100% !important;
-  }
-
-  table {
-    width: 100% !important;
-    table-layout: fixed !important;
-    font-size: 0.68rem !important;
-  }
-
-  th, td {
-    padding: 1px !important;
-    height: auto !important;
-    word-break: break-all;
-  }
-
-  .col-sticky {
-    position: static !important;
-    box-shadow: none !important;
-  }
-
-  .cell-cell {
-    height: 28px !important;
-    font-size: 0.65rem !important;
-  }
+.print-preview-container {
+  background: white;
+  overflow-x: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
 }
 </style>
 </head>
@@ -530,7 +475,7 @@ th.col-sticky {
   苗栗店 - 麥德加專業饅頭 <span id="displayYear">115</span> 年 <span id="displayMonth">9</span> 月 輪休排班表
 </div>
 
-<div class="table-container">
+<div class="table-container" id="mainTableArea">
   <table id="scheduleTable">
     <thead>
       <tr id="headerRowName">
@@ -551,6 +496,20 @@ th.col-sticky {
   <div class="audit-title">🔍 每日人力與規則稽核狀況</div>
   <div class="audit-list" id="auditList">
     尚無異常。
+  </div>
+</div>
+
+<!-- 全畫面預覽 Modal -->
+<div class="print-modal-overlay" id="printModal">
+  <div class="print-modal-toolbar">
+    <span style="font-weight: bold; font-size: 0.95rem;">📄 A4 橫式全畫面預覽（可直接截圖）</span>
+    <div>
+      <button onclick="trySystemPrint()" style="padding: 5px 10px; background: #059669; color: white; border: none; border-radius: 4px; font-weight: bold; margin-right: 5px; cursor: pointer;">🖨️ 列印/轉PDF</button>
+      <button onclick="closePrintModal()" style="padding: 5px 10px; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">✕ 關閉</button>
+    </div>
+  </div>
+  <div class="print-preview-container" id="printPreviewContent">
+    <!-- 複製主表格至此 -->
   </div>
 </div>
 
@@ -1086,7 +1045,23 @@ function addNewStaff() {
   }
 }
 
+/* 點擊「📥 匯出/列印」：跳出全畫面預覽 Modal */
 function shareOrExport() {
+  const tableContent = document.getElementById('mainTableArea').cloneNode(true);
+  const titleText = `<h3>苗栗店 - 麥德加專業饅頭 ${document.getElementById('displayYear').innerText} 年 ${document.getElementById('displayMonth').innerText} 月 輪休排班表</h3><br>`;
+  
+  const printPreviewContent = document.getElementById('printPreviewContent');
+  printPreviewContent.innerHTML = titleText;
+  printPreviewContent.appendChild(tableContent);
+
+  document.getElementById('printModal').style.display = 'block';
+}
+
+function closePrintModal() {
+  document.getElementById('printModal').style.display = 'none';
+}
+
+function trySystemPrint() {
   window.print();
 }
 </script>
