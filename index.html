@@ -588,9 +588,7 @@ th.col-sticky {
       <button onclick="closePrintModal()" style="padding: 6px 12px; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">✕ 關閉</button>
     </div>
   </div>
-  <div class="print-preview-container" id="printPreviewContent">
-    <!-- 複製主表格與稽核結果至此供預覽 -->
-  </div>
+  <div class="print-preview-container" id="printPreviewContent"></div>
 </div>
 
 <!-- 離屏隱藏 PDF 轉繪區 -->
@@ -668,6 +666,7 @@ const faShifts = ["", "休", "發"];
 const standardShifts = ["", "休"];
 
 window.onload = function() {
+  loadFromStorage();
   initTable();
   renderRulesModal();
   runAudit();
@@ -683,6 +682,28 @@ window.onload = function() {
     runAudit();
   });
 };
+
+/* 自動儲存與讀取 localStorage 功能 */
+function saveToStorage() {
+  try {
+    localStorage.setItem('maidega_schedule', JSON.stringify(scheduleData));
+    localStorage.setItem('maidega_staff', JSON.stringify(staffList));
+    localStorage.setItem('maidega_mutex', JSON.stringify(mutexRules));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const savedSch = localStorage.getItem('maidega_schedule');
+    if (savedSch) scheduleData = JSON.parse(savedSch);
+
+    const savedStaff = localStorage.getItem('maidega_staff');
+    if (savedStaff) staffList = JSON.parse(savedStaff);
+
+    const savedMutex = localStorage.getItem('maidega_mutex');
+    if (savedMutex) mutexRules = JSON.parse(savedMutex);
+  } catch(e) {}
+}
 
 function updateTitle() {
   document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
@@ -760,7 +781,6 @@ function initTable() {
     tdName.className = 'col-sticky';
     tdName.id = `staff_col_${staff.name}`;
     
-    // 點擊姓名儲存格觸發高亮切換
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
@@ -795,6 +815,7 @@ function initTable() {
         }
 
         scheduleData[monthKey][staff.name][d] = newVal;
+        saveToStorage();
         refreshTableStyles();
         runAudit();
       };
@@ -838,3 +859,427 @@ function initSummary() {
   tdRestLabel.style.zIndex = '2';
   tdRestLabel.style.cursor = 'default';
   tdRestLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日休假人數</span>';
+  trRest.appendChild(tdRestLabel);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const td = document.createElement('td');
+    td.id = `summary_rest_${d}`;
+    td.innerText = '0人';
+    trRest.appendChild(td);
+  }
+  
+  const tdRestTotal = document.createElement('td');
+  tdRestTotal.id = 'summary_total_rest';
+  tdRestTotal.innerText = ''; 
+  tdRestTotal.className = 'cell-summary-col';
+  trRest.appendChild(tdRestTotal);
+  tableFoot.appendChild(trRest);
+
+  // 2. 當日上班人數
+  const trWork = document.createElement('tr');
+  trWork.className = 'summary-row';
+  const tdWorkLabel = document.createElement('td');
+  tdWorkLabel.className = 'col-sticky';
+  tdWorkLabel.style.backgroundColor = 'var(--summary-bg)';
+  tdWorkLabel.style.zIndex = '2';
+  tdWorkLabel.style.cursor = 'default';
+  tdWorkLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日上班人數</span>';
+  trWork.appendChild(tdWorkLabel);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const td = document.createElement('td');
+    td.id = `summary_work_${d}`;
+    td.innerText = '0人';
+    trWork.appendChild(td);
+  }
+  const tdWorkTotal = document.createElement('td');
+  tdWorkTotal.innerText = '';
+  tdWorkTotal.className = 'cell-summary-col';
+  trWork.appendChild(tdWorkTotal);
+  tableFoot.appendChild(trWork);
+}
+
+function updateSummary() {
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
+
+  staffList.forEach(staff => {
+    let restDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      if (staff.type === 'manager') {
+        if (val === '支援') restDays++;
+      } else {
+        if (val === '休') restDays++;
+      }
+    }
+    const restCountEl = document.getElementById(`rest_count_${staff.name}`);
+    if (restCountEl) {
+      restCountEl.innerText = `${restDays}天`;
+    }
+  });
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    let restCount = 0;
+    let workCount = 0;
+
+    staffList.forEach(staff => {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      
+      if (val === '休') {
+        if (staff.name !== '曉芳' && staff.name !== '阿明') {
+          restCount++;
+        }
+      }
+
+      if (staff.type === 'manager') {
+        if (val === '支援') workCount++;
+      } else if (staff.name === '曉芳') {
+        if (val !== '' && val !== '休') workCount++;
+      } else {
+        if (val !== '休') workCount++;
+      }
+    });
+
+    const restCell = document.getElementById(`summary_rest_${d}`);
+    const workCell = document.getElementById(`summary_work_${d}`);
+
+    if (restCell) restCell.innerText = restCount > 0 ? `${restCount}人` : '0人';
+    if (workCell) workCell.innerText = `${workCount}人`;
+  }
+}
+
+function hasMutexConflict(staffName, day) {
+  const monthKey = getMonthKey();
+  const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
+  if (val !== '休') return false;
+
+  for (let rule of mutexRules) {
+    if (rule.a === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
+      if (otherVal === '休') return true;
+    } else if (rule.b === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
+      if (otherVal === '休') return true;
+    }
+  }
+  return false;
+}
+
+function isRamenStaff(staffName, day) {
+  if (['阿勳', '阿文', '鐘孝謙'].includes(staffName)) return true;
+  if (staffName === '吳駿毅') {
+    if (day < 16) return false;
+    const startDayOfWeek = getStartDayOfWeek();
+    const dayOfWeek = (startDayOfWeek + day - 1) % 7;
+    if (dayOfWeek === 4 || dayOfWeek === 5) return false;
+    return true;
+  }
+  if (staffName === '阿明') {
+    const monthKey = getMonthKey();
+    const val = scheduleData[monthKey] && scheduleData[monthKey]['阿明'] ? scheduleData[monthKey]['阿明'][day] : "";
+    return typeof val === 'string' && val.startsWith('03:00~07:00');
+  }
+  return false;
+}
+
+function getRamenActiveCount(day) {
+  let count = 0;
+  const monthKey = getMonthKey();
+  staffList.forEach(staff => {
+    if (isRamenStaff(staff.name, day)) {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      if (val !== '休') count++;
+    }
+  });
+  return count;
+}
+
+function hasRamenShortage(staffName, day) {
+  if (!isRamenStaff(staffName, day)) return false;
+  return getRamenActiveCount(day) < 2;
+}
+
+function canStaffTakeRestSafely(staffName, day) {
+  const monthKey = getMonthKey();
+  
+  for (let rule of mutexRules) {
+    if (rule.a === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
+      if (otherVal === '休') return false;
+    } else if (rule.b === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
+      if (otherVal === '休') return false;
+    }
+  }
+
+  if (isRamenStaff(staffName, day)) {
+    let activeRamen = 0;
+    staffList.forEach(s => {
+      if (isRamenStaff(s.name, day)) {
+        const v = (s.name === staffName) ? "休" : (scheduleData[monthKey] && scheduleData[monthKey][s.name] ? scheduleData[monthKey][s.name][day] : "");
+        if (v !== '休') activeRamen++;
+      }
+    });
+    if (activeRamen < 2) return false;
+  }
+
+  return true;
+}
+
+function updateCellDisplay(td, val, staffName, day) {
+  td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict', 'cell-available');
+
+  const isMutex = hasMutexConflict(staffName, day);
+  const isRamenErr = hasRamenShortage(staffName, day);
+
+  if (isMutex || isRamenErr) {
+    td.classList.add('cell-conflict');
+  } else if (val === '休') {
+    td.classList.add('cell-rest');
+  } else if (val === '支援') {
+    td.classList.add('cell-support');
+  } else if (val === '發') {
+    td.classList.add('cell-fa');
+  } else if (activeHighlightedStaff === staffName && val === '') {
+    if (canStaffTakeRestSafely(staffName, day)) {
+      td.classList.add('cell-available');
+    }
+  }
+
+  td.innerText = val ? val : '';
+}
+
+function refreshTableStyles() {
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
+
+  staffList.forEach(staff => {
+    const nameCol = document.getElementById(`staff_col_${staff.name}`);
+    if (nameCol) {
+      if (activeHighlightedStaff === staff.name) {
+        nameCol.classList.add('col-sticky-active');
+      } else {
+        nameCol.classList.remove('col-sticky-active');
+      }
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const td = cellElements[staff.name] && cellElements[staff.name][d];
+      if (td) {
+        const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+        updateCellDisplay(td, val, staff.name, d);
+      }
+    }
+  });
+  updateSummary();
+}
+
+function runAudit() {
+  const auditList = document.getElementById('auditList');
+  let logs = [];
+  const daysInMonth = getDaysInCurrentMonth();
+  const monthKey = getMonthKey();
+  const currentMonthStr = document.getElementById('monthSelect').value;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    let activeRamenCount = getRamenActiveCount(d);
+    if (activeRamenCount < 2) {
+      logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
+    }
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    mutexRules.forEach(rule => {
+      const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
+      const valB = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][d] : "";
+      if (valA === "休" && valB === "休") {
+        logs.push(`<span class="audit-item-error">🚫 ${currentMonthStr}月 ${d} 日 衝突：${rule.a} 與 ${rule.b} 同日休假</span>`);
+      }
+    });
+  }
+
+  staffList.forEach(staff => {
+    let restDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      if (staff.type === 'manager') {
+        if (val === '支援') restDays++;
+      } else {
+        if (val === '休') restDays++;
+      }
+    }
+    if (staff.minRest > 0 && restDays < staff.minRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
+    } else if (staff.maxRest > 0 && restDays > staff.maxRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
+    }
+  });
+
+  if (logs.length === 0) {
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
+  } else {
+    auditList.innerHTML = logs.join('<br>');
+  }
+}
+
+function openRuleModal() {
+  renderRulesModal();
+  document.getElementById('ruleModal').style.display = 'flex';
+}
+
+function closeRuleModal() {
+  document.getElementById('ruleModal').style.display = 'none';
+}
+
+function renderRulesModal() {
+  const mutexA = document.getElementById('mutexA');
+  const mutexB = document.getElementById('mutexB');
+  mutexA.innerHTML = '';
+  mutexB.innerHTML = '';
+
+  staffList.forEach(s => {
+    mutexA.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    mutexB.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+  });
+
+  const mutexList = document.getElementById('mutexList');
+  mutexList.innerHTML = '';
+  mutexRules.forEach((m, idx) => {
+    mutexList.innerHTML += `
+      <div class="mutex-item">
+        <span>🚫 ${m.a} ↔ ${m.b} (不能同日休假)</span>
+        <span class="delete-btn" onclick="removeMutex(${idx})">🗑️</span>
+      </div>
+    `;
+  });
+
+  const staffTargetList = document.getElementById('staffTargetList');
+  staffTargetList.innerHTML = '';
+  staffList.forEach((s, idx) => {
+    staffTargetList.innerHTML += `
+      <div class="staff-target-card">
+        <b>${s.name}</b>
+        <div class="staff-target-inputs">
+          最少 <input type="number" id="min_${idx}" value="${s.minRest}"> 天，
+          最多 <input type="number" id="max_${idx}" value="${s.maxRest}"> 天
+        </div>
+      </div>
+    `;
+  });
+}
+
+function addMutex() {
+  const a = document.getElementById('mutexA').value;
+  const b = document.getElementById('mutexB').value;
+  if (a === b) {
+    alert("請選擇不同的兩人！");
+    return;
+  }
+  mutexRules.push({ a, b });
+  saveToStorage();
+  renderRulesModal();
+  refreshTableStyles();
+  runAudit();
+}
+
+function removeMutex(idx) {
+  mutexRules.splice(idx, 1);
+  saveToStorage();
+  renderRulesModal();
+  refreshTableStyles();
+  runAudit();
+}
+
+function saveRules() {
+  staffList.forEach((s, idx) => {
+    const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
+    const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 0;
+    s.minRest = minVal;
+    s.maxRest = maxVal;
+  });
+
+  saveToStorage();
+  closeRuleModal();
+  refreshTableStyles();
+  runAudit();
+  alert("排假規則與參數設定已成功儲存並套用！");
+}
+
+function addNewStaff() {
+  const name = prompt("請輸入新人員姓名：");
+  if (name) {
+    staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0 });
+    saveToStorage();
+    initTable();
+    runAudit();
+  }
+}
+
+function shareOrExport() {
+  const tableContent = document.getElementById('mainTableArea').cloneNode(true);
+  const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
+  const titleText = `<h3 style="margin-bottom:10px;">苗栗店 - 麥德加專業饅頭 ${document.getElementById('displayYear').innerText} 年 ${document.getElementById('displayMonth').innerText} 月 輪休排班表</h3>`;
+  
+  const printPreviewContent = document.getElementById('printPreviewContent');
+  printPreviewContent.innerHTML = titleText;
+  printPreviewContent.appendChild(tableContent);
+  printPreviewContent.appendChild(auditContent);
+
+  document.getElementById('printModal').style.display = 'block';
+}
+
+function closePrintModal() {
+  document.getElementById('printModal').style.display = 'none';
+}
+
+function downloadPDF() {
+  alert("正在生成高解析度 A4 滿版排班表，請稍候 2 秒...");
+
+  const exportArea = document.getElementById('pdfExportArea');
+  const tableContent = document.getElementById('mainTableArea').cloneNode(true);
+  const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
+  const year = document.getElementById('displayYear').innerText;
+  const month = document.getElementById('displayMonth').innerText;
+
+  exportArea.innerHTML = `
+    <h2 style="text-align:center; margin-bottom:12px; color:#6e3a1e; font-size:1.4rem;">
+      苗栗店 - 麥德加專業饅頭 ${year} 年 ${month} 月 輪休排班表
+    </h2>
+  `;
+  exportArea.appendChild(tableContent);
+  exportArea.appendChild(auditContent);
+
+  html2canvas(exportArea, {
+    scale: 2,
+    useCORS: true,
+    width: 1500
+  }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const pdfWidth = 297;
+    const pdfHeight = 210;
+    const margin = 5;
+
+    const printableWidth = pdfWidth - (margin * 2);
+    const printableHeight = pdfHeight - (margin * 2);
+
+    let imgWidth = printableWidth;
+    let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    if (imgHeight > printableHeight) {
+      imgHeight = printableHeight;
+      imgWidth = (canvas.width * imgHeight) / canvas.height;
+    }
+
+    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+    pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
+
+    exportArea.innerHTML = '';
+  });
+}
+</script>
+</body>
+</html>
