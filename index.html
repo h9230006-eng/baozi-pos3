@@ -650,7 +650,6 @@ let mutexRules = [
 ];
 
 let scheduleData = {};
-let cellElements = {}; 
 let activeHighlightedStaff = null; 
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -732,7 +731,6 @@ function initTable() {
   headerRowName.innerHTML = '<th class="col-sticky">姓名/日期</th>';
   headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
   tableBody.innerHTML = '';
-  cellElements = {};
   activeHighlightedStaff = null;
 
   const daysInMonth = getDaysInCurrentMonth();
@@ -768,21 +766,29 @@ function initTable() {
 
   staffList.forEach(staff => {
     if (!scheduleData[monthKey][staff.name]) scheduleData[monthKey][staff.name] = {};
-    if (!cellElements[staff.name]) cellElements[staff.name] = {};
 
     const tr = document.createElement('tr');
+    tr.setAttribute('data-staff', staff.name); // 將員工姓名直接綁定在整行 tr 上
+
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
-    
-    // 點擊姓名儲存格切換該員工列的高亮顯示
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
-    tdName.onclick = () => toggleStaffHighlight(staff.name);
+    
+    // 點擊姓名：切換該員工的高亮狀態
+    tdName.onclick = () => {
+      if (activeHighlightedStaff === staff.name) {
+        activeHighlightedStaff = null;
+      } else {
+        activeHighlightedStaff = staff.name;
+      }
+      refreshTableStyles();
+    };
     tr.appendChild(tdName);
 
     for (let d = 1; d <= daysInMonth; d++) {
       const td = document.createElement('td');
       td.className = 'cell-cell';
-      cellElements[staff.name][d] = td; // 精準對應該員工與該日期格子
+      td.setAttribute('data-day', d);
 
       const currentVal = scheduleData[monthKey][staff.name][d] || "";
       updateCellDisplay(td, currentVal, staff.name, d);
@@ -828,15 +834,6 @@ function initTable() {
 
   initSummary();
   updateSummary();
-}
-
-function toggleStaffHighlight(staffName) {
-  if (activeHighlightedStaff === staffName) {
-    activeHighlightedStaff = null; 
-  } else {
-    activeHighlightedStaff = staffName; 
-  }
-  refreshTableStyles();
 }
 
 function initSummary() {
@@ -982,7 +979,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val !== '休') count++;
     }
   });
@@ -1036,7 +1033,7 @@ function updateCellDisplay(td, val, staffName, day) {
   } else if (val === '發') {
     td.classList.add('cell-fa');
   } else if (activeHighlightedStaff === staffName && val === '') {
-    // 嚴格比對：只有當前被點擊的那位員工自己那列的空白格子才會高亮
+    // 透過當前行所屬的員工名稱進行嚴格驗證與高亮
     if (canStaffTakeRestSafely(staffName, day)) {
       td.classList.add('cell-available');
     }
@@ -1049,9 +1046,13 @@ function refreshTableStyles() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
 
+  // 透過 DOM 直接尋找每位員工的行，進行精準更新
   staffList.forEach(staff => {
+    const tr = document.querySelector(`tr[data-staff="${staff.name}"]`);
+    if (!tr) return;
+
     for (let d = 1; d <= daysInMonth; d++) {
-      const td = cellElements[staff.name] && cellElements[staff.name][d];
+      const td = tr.querySelector(`td[data-day="${d}"]`);
       if (td) {
         const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
         updateCellDisplay(td, val, staff.name, d);
