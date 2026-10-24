@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
 
-<!-- 引入 HTML 轉 PDF 必備的開源套件 -->
+<!-- 引入 HTML 轉 PDF 必備套件 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -443,6 +443,33 @@ th.col-sticky {
   padding: 10px;
   border-radius: 8px;
 }
+
+/* 專用離屏隱藏 PDF 繪製區（固定 1280px 寬度，確保 100% 全滿版轉繪） */
+#pdfExportArea {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1280px !important;
+  background: #ffffff;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+#pdfExportArea table {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+#pdfExportArea .col-sticky {
+  position: static !important;
+  box-shadow: none !important;
+}
+
+#pdfExportArea .table-container {
+  overflow: visible !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 </style>
 </head>
 <body>
@@ -514,9 +541,12 @@ th.col-sticky {
     </div>
   </div>
   <div class="print-preview-container" id="printPreviewContent">
-    <!-- 複製主表格與稽核結果至此 -->
+    <!-- 複製主表格與稽核結果至此供預覽 -->
   </div>
 </div>
+
+<!-- 離屏隱藏 PDF 轉繪區 -->
+<div id="pdfExportArea"></div>
 
 <!-- 排假規則與參數設定 Modal -->
 <div class="modal-overlay" id="ruleModal">
@@ -1068,36 +1098,34 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 解除橫向捲軸限制，將「100% 完整寬度與高度」繪製成 A4 橫式 PDF 下載 */
+/* 利用離屏渲染（Off-screen Render）產生 100% 完整 A4 橫式 PDF */
 function downloadPDF() {
-  alert("正在為您打包整張排班表（1~31日全滿版），請稍候約 2~3 秒...");
+  alert("正在生成 A4 滿版排班表（1~31日 + 人員 + 稽核狀況），請稍候 2 秒...");
 
-  const previewContent = document.getElementById('printPreviewContent');
-  const tableContainer = previewContent.querySelector('.table-container');
+  const exportArea = document.getElementById('pdfExportArea');
+  const tableContent = document.getElementById('mainTableArea').cloneNode(true);
+  const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
+  const year = document.getElementById('displayYear').innerText;
+  const month = document.getElementById('displayMonth').innerText;
 
-  // 1. 備份原始樣式
-  const originalOverflow = tableContainer.style.overflow;
-  const originalWidth = tableContainer.style.width;
+  exportArea.innerHTML = `
+    <h2 style="text-align:center; margin-bottom:12px; color:#6e3a1e; font-size:1.4rem;">
+      苗栗店 - 麥德加專業饅頭 ${year} 年 ${month} 月 輪休排班表
+    </h2>
+  `;
+  exportArea.appendChild(tableContent);
+  exportArea.appendChild(auditContent);
 
-  // 2. 暫時展開表格至滿版全寬（無視手機螢幕縮放限制）
-  tableContainer.style.overflow = 'visible';
-  tableContainer.style.width = 'auto';
-
-  // 3. 進行整頁畫面擷取
-  html2canvas(previewContent, {
-    scale: 2, // 提高清析度
+  // 繪製獨立的 1280px 完整高畫質畫面
+  html2canvas(exportArea, {
+    scale: 2,
     useCORS: true,
-    windowWidth: previewContent.scrollWidth,
-    windowHeight: previewContent.scrollHeight
+    width: 1280
   }).then(canvas => {
-    // 4. 恢復原樣
-    tableContainer.style.overflow = originalOverflow;
-    tableContainer.style.width = originalWidth;
-
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
 
-    // 建立 A4 橫式 PDF ('l' = landscape, 尺寸 297mm x 210mm)
+    // 建立 A4 橫式文件 (寬 297mm x 高 210mm)
     const pdf = new jsPDF('l', 'mm', 'a4');
     const pdfWidth = 297;
     const pdfHeight = 210;
@@ -1106,7 +1134,7 @@ function downloadPDF() {
     const printableWidth = pdfWidth - (margin * 2);
     const printableHeight = pdfHeight - (margin * 2);
 
-    // 自動按比例縮放圖片，確保 100% 全部放入單頁 A4 中
+    // 精確按比例填滿 A4 頁面
     let imgWidth = printableWidth;
     let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -1116,10 +1144,10 @@ function downloadPDF() {
     }
 
     pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
-
-    const year = document.getElementById('displayYear').innerText;
-    const month = document.getElementById('displayMonth').innerText;
     pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
+
+    // 繪製完成後清空隱藏區
+    exportArea.innerHTML = '';
   });
 }
 </script>
