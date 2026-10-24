@@ -147,11 +147,11 @@ th {
   white-space: nowrap;
 }
 
-/* 姓名欄位維持純白背景，不變色 */
+/* 姓名欄位固定維持純白背景，絕不變色 */
 .col-sticky {
   position: sticky;
   left: 0;
-  background: white;
+  background: white !important;
   z-index: 2;
   font-weight: bold;
   width: 55px !important;
@@ -174,7 +174,7 @@ th {
 }
 
 th.col-sticky {
-  background: var(--table-header);
+  background: var(--table-header) !important;
   z-index: 3;
   writing-mode: horizontal-tb;
   font-size: 0.75rem;
@@ -222,11 +222,11 @@ th.col-sticky {
   border: 2px solid #dc2626 !important;
 }
 
-/* 點擊姓名後，該列符合排假的空格變亮綠色 */
+/* 點擊姓名後，該員工同列對應尚可排假的空格變綠色 */
 .cell-available {
   background-color: var(--available-bg) !important;
   border: 2px solid var(--available-border) !important;
-  color: #14532d;
+  color: #14532d !important;
 }
 
 /* 休假天數欄位 */
@@ -543,7 +543,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名，該員工當月**尚可安心排休的空白格子會變亮綠色**（姓名本身維持原樣不變色）；再點一次姓名即可取消。
+  💡 <b>操作說明</b>：點擊人員姓名，該員工自己那列**尚可安心排休的空白格子會變亮綠色**（姓名欄位本身維持白色不變色）；再點一次姓名即可取消。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -773,9 +773,8 @@ function initTable() {
     const tr = document.createElement('tr');
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
-    tdName.id = `staff_col_${staff.name}`;
     
-    // 點擊姓名儲存格觸發該列空格高亮
+    // 點擊姓名儲存格切換該員工列的高亮顯示
     tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
     tdName.onclick = () => toggleStaffHighlight(staff.name);
     tr.appendChild(tdName);
@@ -783,7 +782,7 @@ function initTable() {
     for (let d = 1; d <= daysInMonth; d++) {
       const td = document.createElement('td');
       td.className = 'cell-cell';
-      cellElements[staff.name][d] = td;
+      cellElements[staff.name][d] = td; // 精準對應該員工與該日期格子
 
       const currentVal = scheduleData[monthKey][staff.name][d] || "";
       updateCellDisplay(td, currentVal, staff.name, d);
@@ -1037,6 +1036,7 @@ function updateCellDisplay(td, val, staffName, day) {
   } else if (val === '發') {
     td.classList.add('cell-fa');
   } else if (activeHighlightedStaff === staffName && val === '') {
+    // 嚴格比對：只有當前被點擊的那位員工自己那列的空白格子才會高亮
     if (canStaffTakeRestSafely(staffName, day)) {
       td.classList.add('cell-available');
     }
