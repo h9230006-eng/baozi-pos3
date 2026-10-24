@@ -21,6 +21,8 @@
   --rest-text: #166534;
   --support-bg: #e0f2fe;
   --support-text: #0369a1;
+  --fa-bg: #ffedd5;
+  --fa-text: #9a3412;
   --alert-bg: #fee2e2;
   --alert-text: #991b1b;
   --summary-bg: #fef9c3;
@@ -180,6 +182,12 @@ th.col-sticky {
 .cell-support {
   background-color: var(--support-bg) !important;
   color: var(--support-text) !important;
+  font-weight: bold;
+}
+
+.cell-fa {
+  background-color: var(--fa-bg) !important;
+  color: var(--fa-text) !important;
   font-weight: bold;
 }
 
@@ -444,7 +452,7 @@ th.col-sticky {
   border-radius: 8px;
 }
 
-/* 專用離屏隱藏 PDF 繪製區（固定 1280px 寬度，確保 100% 全滿版轉繪） */
+/* 離屏隱藏 PDF 轉繪區 */
 #pdfExportArea {
   position: absolute;
   left: -9999px;
@@ -500,7 +508,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可循環切換班別或休假（經理需點選支援才計入上班人數）。
+  💡 <b>操作說明</b>：點擊格子即可切換班別（一般人員點 1 次休、點 2 次發）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -614,6 +622,8 @@ const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
 const hsiaofangShifts = ["", "休", "03:00~10:00", "03:00~12:00", "02:30~10:00"];
+const managerShifts = ["", "休", "支援"];
+const standardShifts = ["", "休", "發"];
 
 window.onload = function() {
   initTable();
@@ -725,9 +735,11 @@ function initTable() {
           let idx = hsiaofangShifts.indexOf(val);
           newVal = hsiaofangShifts[(idx + 1) % hsiaofangShifts.length];
         } else if (staff.type === 'manager') {
-          newVal = (val === "支援") ? "" : "支援";
+          let idx = managerShifts.indexOf(val);
+          newVal = managerShifts[(idx + 1) % managerShifts.length];
         } else {
-          newVal = (val === "休") ? "" : "休";
+          let idx = standardShifts.indexOf(val);
+          newVal = standardShifts[(idx + 1) % standardShifts.length];
         }
 
         scheduleData[monthKey][staff.name][d] = newVal;
@@ -809,8 +821,14 @@ function updateSummary() {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      if (val === '休') {
-        restDays++;
+      if (staff.type === 'manager') {
+        if (val === '休' || val === '支援') {
+          restDays++;
+        }
+      } else {
+        if (val === '休') {
+          restDays++;
+        }
       }
     }
     totalMonthlyRest += restDays;
@@ -827,12 +845,16 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
+      // 當日休假人數 (曉芳和阿明不計入休假人數)
       if (val === '休') {
-        restCount++;
+        if (staff.name !== '曉芳' && staff.name !== '阿明') {
+          restCount++;
+        }
       }
 
+      // 當日上班人數
       if (staff.type === 'manager') {
-        if (val === '支援') {
+        if (val === '') {
           workCount++;
         }
       } else {
@@ -913,7 +935,7 @@ function hasRamenShortage(staffName, day) {
 }
 
 function updateCellDisplay(td, val, staffName, day) {
-  td.classList.remove('cell-rest', 'cell-support', 'cell-conflict');
+  td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict');
 
   const isMutex = hasMutexConflict(staffName, day);
   const isRamenErr = hasRamenShortage(staffName, day);
@@ -924,6 +946,8 @@ function updateCellDisplay(td, val, staffName, day) {
     td.classList.add('cell-rest');
   } else if (val === '支援') {
     td.classList.add('cell-support');
+  } else if (val === '發') {
+    td.classList.add('cell-fa');
   }
 
   td.innerText = val ? val : '';
@@ -973,8 +997,10 @@ function runAudit() {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      if (val === '休') {
-        restDays++;
+      if (staff.type === 'manager') {
+        if (val === '休' || val === '支援') restDays++;
+      } else {
+        if (val === '休') restDays++;
       }
     }
     if (staff.minRest > 0 && restDays < staff.minRest) {
@@ -1098,7 +1124,7 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 利用離屏渲染（Off-screen Render）產生 100% 完整 A4 橫式 PDF */
+/* 離屏渲染（Off-screen Render）產生 100% 完整 A4 橫式 PDF */
 function downloadPDF() {
   alert("正在生成 A4 滿版排班表（1~31日 + 人員 + 稽核狀況），請稍候 2 秒...");
 
@@ -1116,7 +1142,6 @@ function downloadPDF() {
   exportArea.appendChild(tableContent);
   exportArea.appendChild(auditContent);
 
-  // 繪製獨立的 1280px 完整高畫質畫面
   html2canvas(exportArea, {
     scale: 2,
     useCORS: true,
@@ -1125,7 +1150,6 @@ function downloadPDF() {
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
 
-    // 建立 A4 橫式文件 (寬 297mm x 高 210mm)
     const pdf = new jsPDF('l', 'mm', 'a4');
     const pdfWidth = 297;
     const pdfHeight = 210;
@@ -1134,7 +1158,6 @@ function downloadPDF() {
     const printableWidth = pdfWidth - (margin * 2);
     const printableHeight = pdfHeight - (margin * 2);
 
-    // 精確按比例填滿 A4 頁面
     let imgWidth = printableWidth;
     let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -1146,7 +1169,6 @@ function downloadPDF() {
     pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
     pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
 
-    // 繪製完成後清空隱藏區
     exportArea.innerHTML = '';
   });
 }
