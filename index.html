@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -7,8 +6,8 @@ html
 <title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
 
 <!-- 引入 HTML 轉 PDF 必備套件 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="[https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js](https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)"></script>
+<script src="[https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js](https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js)"></script>
 
 <style>
 :root {
@@ -437,10 +436,22 @@ th.col-sticky {
 
 .staff-target-inputs select {
   padding: 4px;
-  text-align: center;
   border: 1px solid #ccc;
   border-radius: 4px;
+  background: white;
 }
+
+.btn-toggle-limit {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-toggle-on { background: #059669; color: white; }
+.btn-toggle-off { background: #9ca3af; color: white; }
 
 .modal-footer {
   padding: 12px 16px;
@@ -520,37 +531,21 @@ th.col-sticky {
 }
 
 .toast-msg {
-  display: none;
   position: fixed;
   bottom: 20px;
-  right: 20px;
-  background: #dc2626;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #15803d;
   color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 10px 20px;
+  border-radius: 20px;
   font-weight: bold;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
   z-index: 3000;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-
-.toggle-btn {
-  border: none;
-  border-radius: 4px;
-  padding: 2px 10px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  font-weight: bold;
-  min-width: 42px;
-}
-
-.toggle-btn.on {
-  background: #059669;
-  color: white;
-}
-
-.toggle-btn.off {
-  background: #6b7280;
-  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
 }
 </style>
 </head>
@@ -613,6 +608,8 @@ th.col-sticky {
   </div>
 </div>
 
+<div class="toast-msg" id="toastMsg">設定已儲存</div>
+
 <!-- 全畫面預覽 Modal -->
 <div class="print-modal-overlay" id="printModal">
   <div class="print-modal-toolbar">
@@ -661,12 +658,10 @@ th.col-sticky {
 
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
+      <button class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
     </div>
   </div>
 </div>
-
-<div class="toast-msg" id="toastMsg"></div>
 
 <script>
 let staffList = [
@@ -702,6 +697,13 @@ const managerShifts = ["", "支援"];
 const faShifts = ["", "休", "發"];
 const standardShifts = ["", "休"];
 
+function showToast(msg) {
+  const t = document.getElementById('toastMsg');
+  t.innerText = msg;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 2000);
+}
+
 window.onload = function() {
   initTable();
   renderRulesModal();
@@ -718,15 +720,6 @@ window.onload = function() {
     runAudit();
   });
 };
-
-function showToast(msg) {
-  const toast = document.getElementById('toastMsg');
-  toast.innerText = msg;
-  toast.style.display = 'block';
-  setTimeout(() => {
-    toast.style.display = 'none';
-  }, 2500);
-}
 
 function updateTitle() {
   document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
@@ -753,17 +746,14 @@ function getStartDayOfWeek() {
   return new Date(gregorianYear, month - 1, 1).getDay();
 }
 
-function getCurrentRestDaysCount(staffName) {
+function getStaffCurrentRestDays(staffName) {
   const monthKey = getMonthKey();
   const daysInMonth = getDaysInCurrentMonth();
   let count = 0;
   for (let d = 1; d <= daysInMonth; d++) {
     const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][d] : "";
-    const staff = staffList.find(s => s.name === staffName);
-    if (staff && staff.type === 'manager') {
-      if (val === '支援') count++;
-    } else {
-      if (val === '休') count++;
+    if (val === '休' || val === '支援') {
+      count++;
     }
   }
   return count;
@@ -820,12 +810,10 @@ function initTable() {
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     
-    // 建立「🔍可休」按鈕
     const btnQuery = document.createElement('button');
     btnQuery.className = 'btn-query-rest';
     btnQuery.innerText = '🔍可休';
 
-    // 儲存按鈕引用
     btnElements[staff.name] = btnQuery;
 
     const nameDiv = document.createElement('div');
@@ -835,7 +823,6 @@ function initTable() {
     tdName.appendChild(nameDiv);
     tr.appendChild(tdName);
 
-    // 綁定點擊事件（點擊切換可休提示）
     btnQuery.addEventListener('click', (e) => {
       e.stopPropagation();
       if (activeHighlightedStaff === staff.name) {
@@ -858,27 +845,25 @@ function initTable() {
         let newVal = "";
         const val = scheduleData[monthKey][staff.name][d] || "";
 
-        let shiftsSeq = standardShifts;
-        if (staff.type === 'aming') shiftsSeq = amingShifts;
-        else if (staff.type === 'hsiaofang') shiftsSeq = hsiaofangShifts;
-        else if (staff.type === 'manager') shiftsSeq = managerShifts;
-        else if (staff.name === '全明正' || staff.name === '吳駿毅') shiftsSeq = faShifts;
+        let shiftsOptions = standardShifts;
+        if (staff.type === 'aming') shiftsOptions = amingShifts;
+        else if (staff.type === 'hsiaofang') shiftsOptions = hsiaofangShifts;
+        else if (staff.type === 'manager') shiftsOptions = managerShifts;
+        else if (staff.name === '全明正' || staff.name === '吳駿毅') shiftsOptions = faShifts;
 
-        let idx = shiftsSeq.indexOf(val);
-        newVal = shiftsSeq[(idx + 1) % shiftsSeq.length];
+        let idx = shiftsOptions.indexOf(val);
+        newVal = shiftsOptions[(idx + 1) % shiftsOptions.length];
 
-        // 天數上限稽核攔截
-        const isTargetRest = (staff.type === 'manager') ? (newVal === '支援') : (newVal === '休');
-        const isCurrentRest = (staff.type === 'manager') ? (val === '支援') : (val === '休');
-
-        if (staff.enableLimits && isTargetRest && !isCurrentRest) {
-          const currentRestCount = getCurrentRestDaysCount(staff.name);
+        if (staff.enableLimits && (newVal === '休' || newVal === '支援')) {
+          const currentRest = getStaffCurrentRestDays(staff.name);
+          const isAlreadyResting = (val === '休' || val === '支援');
+          
           if (staff.maxRest === 0) {
-            showToast(`⚠️ ${staff.name} 最多休假天數設定為 0 天，無法點選休假！`);
+            showToast(`⚠️ ${staff.name} 最多休假 0 天，無法點選排休！`);
             return;
           }
-          if (currentRestCount >= staff.maxRest) {
-            showToast(`⚠️ ${staff.name} 已達最多休假天數 (${staff.maxRest} 天)，無法再增加休假！`);
+          if (!isAlreadyResting && currentRest >= staff.maxRest) {
+            showToast(`⚠️ ${staff.name} 已達最多休假上限 (${staff.maxRest} 天)`);
             return;
           }
         }
@@ -987,17 +972,13 @@ function updateSummary() {
         }
       }
 
-      // 剔除非正常時間上班人員（禹伯海、謝嘉昌）不計入上班人數
-      if (staff.name === '禹伯海' || staff.name === '謝嘉昌') {
-        // 不計入當日上班人數
-      } else if (staff.type === 'manager') {
-        // 經理僅在點選「支援」時才計入當日上班人數
+      if (['禹伯海', '謝嘉昌'].includes(staff.name)) {
+        return;
+      } else if (staff.name === '經理') {
         if (val === '支援') workCount++;
-      } else if (staff.name === '阿明' || staff.name === '曉芳') {
-        // 阿明與曉芳點選選單內容時（非空格且非休）才計入當日上班人數
-        if (val && val !== '休') workCount++;
+      } else if (['阿明', '曉芳'].includes(staff.name)) {
+        if (val !== '' && val !== '休') workCount++;
       } else {
-        // 其餘正職人員非「休」時計入當日上班人數
         if (val !== '休') workCount++;
       }
     });
@@ -1067,12 +1048,11 @@ function hasRamenShortage(staffName, day) {
 
 function canStaffTakeRestSafely(staffName, day) {
   const staff = staffList.find(s => s.name === staffName);
-  if (!staff) return false;
-  
-  if (staff.enableLimits) {
-    if (staff.maxRest === 0) return false;
-    const currentCount = getCurrentRestDaysCount(staffName);
-    if (currentCount >= staff.maxRest) return false;
+  if (staff && staff.enableLimits) {
+    const currentRest = getStaffCurrentRestDays(staffName);
+    if (staff.maxRest === 0 || currentRest >= staff.maxRest) {
+      return false;
+    }
   }
 
   const monthKey = getMonthKey();
@@ -1165,37 +1145,31 @@ function runAudit() {
   const monthKey = getMonthKey();
   const currentMonthStr = document.getElementById('monthSelect').value;
 
-  // 1. 每日當日上班人數稽核（不足 5 人跳出警告）
-  for (let d = 1; d <= daysInMonth; d++) {
-    let workCount = 0;
-    staffList.forEach(staff => {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      
-      if (staff.name === '禹伯海' || staff.name === '謝嘉昌') {
-        // 不計入當日上班人數
-      } else if (staff.type === 'manager') {
-        if (val === '支援') workCount++;
-      } else if (staff.name === '阿明' || staff.name === '曉芳') {
-        if (val && val !== '休') workCount++;
-      } else {
-        if (val !== '休') workCount++;
-      }
-    });
-
-    if (workCount < 5) {
-      logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日當日上班人數僅 ${workCount} 人（不足 5 人）</span>`);
-    }
-  }
-
-  // 2. 拉麵人力稽核（至少 2 人）
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
       logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
     }
+
+    let dailyWorkCount = 0;
+    staffList.forEach(staff => {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      if (['禹伯海', '謝嘉昌'].includes(staff.name)) {
+        return;
+      } else if (staff.name === '經理') {
+        if (val === '支援') dailyWorkCount++;
+      } else if (['阿明', '曉芳'].includes(staff.name)) {
+        if (val !== '' && val !== '休') dailyWorkCount++;
+      } else {
+        if (val !== '休') dailyWorkCount++;
+      }
+    });
+
+    if (dailyWorkCount < 5) {
+      logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日當日上班人數僅 ${dailyWorkCount} 人（不足 5 人）</span>`);
+    }
   }
 
-  // 3. 互斥休假稽核
   for (let d = 1; d <= daysInMonth; d++) {
     mutexRules.forEach(rule => {
       const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
@@ -1206,8 +1180,9 @@ function runAudit() {
     });
   }
 
-  // 4. 個人月休天數目標稽核
   staffList.forEach(staff => {
+    if (!staff.enableLimits) return;
+    
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
@@ -1217,19 +1192,15 @@ function runAudit() {
         if (val === '休') restDays++;
       }
     }
-    
-    // 只有在啟用休假限制時才進行最少與最多天數稽核
-    if (staff.enableLimits) {
-      if (staff.minRest > 0 && restDays < staff.minRest) {
-        logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
-      } else if (staff.maxRest > 0 && restDays > staff.maxRest) {
-        logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
-      }
+    if (staff.minRest > 0 && restDays < staff.minRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，未達最少天數 (${staff.minRest} 天)</span>`);
+    } else if (staff.maxRest >= 0 && restDays > staff.maxRest) {
+      logs.push(`<span class="audit-item-error">⚠️ ${staff.name} 當月排休 ${restDays} 天，超過最多天數 (${staff.maxRest} 天)</span>`);
     }
   });
 
   if (logs.length === 0) {
-    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與每日人力稽核均符合標準。</span>';
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
   } else {
     auditList.innerHTML = logs.join('<br>');
   }
@@ -1242,6 +1213,19 @@ function openRuleModal() {
 
 function closeRuleModal() {
   document.getElementById('ruleModal').style.display = 'none';
+}
+
+function generateDayOptions(selectedVal) {
+  let opts = '';
+  for (let i = 0; i <= 31; i++) {
+    opts += `<option value="${i}" ${i === selectedVal ? 'selected' : ''}>${i}</option>`;
+  }
+  return opts;
+}
+
+function toggleStaffLimit(idx) {
+  staffList[idx].enableLimits = !staffList[idx].enableLimits;
+  renderRulesModal();
 }
 
 function renderRulesModal() {
@@ -1269,75 +1253,43 @@ function renderRulesModal() {
   const staffTargetList = document.getElementById('staffTargetList');
   staffTargetList.innerHTML = '';
   staffList.forEach((s, idx) => {
-    let minOptions = '';
-    let maxOptions = '';
-    for (let i = 0; i <= 31; i++) {
-      minOptions += `<option value="${i}" ${s.minRest === i ? 'selected' : ''}>${i}</option>`;
-      maxOptions += `<option value="${i}" ${s.maxRest === i ? 'selected' : ''}>${i}</option>`;
-    }
-
-    const disabledAttr = !s.enableLimits ? 'disabled' : '';
-    const isChecked = s.enableLimits;
+    const isEnabled = s.enableLimits;
+    const btnClass = isEnabled ? 'btn-toggle-on' : 'btn-toggle-off';
+    const btnText = isEnabled ? '開' : '關';
 
     staffTargetList.innerHTML += `
       <div class="staff-target-card">
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display:flex; align-items:center; gap:6px;">
           <b>${s.name}</b>
-          <button type="button" 
-                  id="toggle_btn_${idx}"
-                  class="toggle-btn ${isChecked ? 'on' : 'off'}"
-                  onclick="toggleStaffLimits(${idx})">
-            ${isChecked ? '開' : '關'}
-          </button>
+          <button class="btn-toggle-limit ${btnClass}" onclick="toggleStaffLimit(${idx})">${btnText}</button>
         </div>
-        <div class="staff-target-inputs" id="target_inputs_${idx}" style="opacity: ${!s.enableLimits ? '0.4' : '1'}">
-          最少 <select id="min_${idx}" ${disabledAttr}>${minOptions}</select> 天，
-          最多 <select id="max_${idx}" ${disabledAttr}>${maxOptions}</select> 天
+        <div class="staff-target-inputs">
+          最少 <select id="min_${idx}" ${!isEnabled ? 'disabled' : ''}>${generateDayOptions(s.minRest)}</select> 天，
+          最多 <select id="max_${idx}" ${!isEnabled ? 'disabled' : ''}>${generateDayOptions(s.maxRest)}</select> 天
         </div>
       </div>
     `;
   });
 }
 
-function toggleStaffLimits(idx) {
-  staffList[idx].enableLimits = !staffList[idx].enableLimits;
-  const btn = document.getElementById(`toggle_btn_${idx}`);
-  const container = document.getElementById(`target_inputs_${idx}`);
-  const minSelect = document.getElementById(`min_${idx}`);
-  const maxSelect = document.getElementById(`max_${idx}`);
-
-  if (staffList[idx].enableLimits) {
-    if (btn) { btn.innerText = '開'; btn.className = 'toggle-btn on'; }
-    if (container) container.style.opacity = '1';
-    if (minSelect) minSelect.disabled = false;
-    if (maxSelect) maxSelect.disabled = false;
-  } else {
-    if (btn) { btn.innerText = '關'; btn.className = 'toggle-btn off'; }
-    if (container) container.style.opacity = '0.4';
-    if (minSelect) minSelect.disabled = true;
-    if (maxSelect) maxSelect.disabled = true;
-  }
-}
-
 function addMutex() {
   const a = document.getElementById('mutexA').value;
   const b = document.getElementById('mutexB').value;
   if (a === b) {
-    alert("不能設定自己與自己互斥！");
-    return;
-  }
-  const exists = mutexRules.some(m => (m.a === a && m.b === b) || (m.a === b && m.b === a));
-  if (exists) {
-    alert("該互斥組合已存在！");
+    showToast("請選擇不同的兩人！");
     return;
   }
   mutexRules.push({ a, b });
   renderRulesModal();
+  refreshTableStyles();
+  runAudit();
 }
 
 function removeMutex(idx) {
   mutexRules.splice(idx, 1);
   renderRulesModal();
+  refreshTableStyles();
+  runAudit();
 }
 
 function saveRules() {
@@ -1345,29 +1297,26 @@ function saveRules() {
     staffList.forEach((s, idx) => {
       const minEl = document.getElementById(`min_${idx}`);
       const maxEl = document.getElementById(`max_${idx}`);
-
+      
       let minVal = minEl ? parseInt(minEl.value, 10) : s.minRest;
       let maxVal = maxEl ? parseInt(maxEl.value, 10) : s.maxRest;
 
-      if (isNaN(minVal)) minVal = s.minRest || 0;
-      if (isNaN(maxVal)) maxVal = s.maxRest || 0;
+      if (isNaN(minVal)) minVal = 0;
+      if (isNaN(maxVal)) maxVal = 0;
 
-      if (minVal > maxVal) {
-        s.minRest = maxVal;
-        s.maxRest = maxVal;
-      } else {
-        s.minRest = minVal;
-        s.maxRest = maxVal;
-      }
+      if (minVal > maxVal) minVal = maxVal;
+
+      s.minRest = minVal;
+      s.maxRest = maxVal;
     });
 
     closeRuleModal();
     refreshTableStyles();
     runAudit();
-    showToast("✅ 排假規則與參數設定已儲存！");
+    showToast("排假規則與參數設定已成功儲存並套用！");
   } catch (err) {
     console.error("Save rules error:", err);
-    showToast("❌ 儲存失敗，請重試");
+    closeRuleModal();
   }
 }
 
@@ -1376,7 +1325,6 @@ function addNewStaff() {
   if (name) {
     staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0, enableLimits: true });
     initTable();
-    renderRulesModal();
     runAudit();
   }
 }
@@ -1448,4 +1396,3 @@ function downloadPDF() {
 </script>
 </body>
 </html>
-```
