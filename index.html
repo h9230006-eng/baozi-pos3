@@ -436,11 +436,10 @@ th.col-sticky {
 }
 
 .staff-target-inputs select {
-  padding: 4px 6px;
+  padding: 4px;
+  text-align: center;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background: white;
-  font-weight: bold;
 }
 
 .modal-footer {
@@ -518,6 +517,20 @@ th.col-sticky {
   overflow: visible !important;
   border: none !important;
   box-shadow: none !important;
+}
+
+.toast-msg {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #dc2626;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  z-index: 3000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 </style>
 </head>
@@ -633,6 +646,8 @@ th.col-sticky {
   </div>
 </div>
 
+<div class="toast-msg" id="toastMsg"></div>
+
 <script>
 let staffList = [
   { name: "全明正", type: "normal", minRest: 0, maxRest: 0 },
@@ -684,6 +699,15 @@ window.onload = function() {
   });
 };
 
+function showToast(msg) {
+  const toast = document.getElementById('toastMsg');
+  toast.innerText = msg;
+  toast.style.display = 'block';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2500);
+}
+
 function updateTitle() {
   document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
   document.getElementById('displayMonth').innerText = document.getElementById('monthSelect').value;
@@ -707,6 +731,22 @@ function getStartDayOfWeek() {
   const month = parseInt(document.getElementById('monthSelect').value);
   const gregorianYear = rocYear + 1911;
   return new Date(gregorianYear, month - 1, 1).getDay();
+}
+
+function getCurrentRestDaysCount(staffName) {
+  const monthKey = getMonthKey();
+  const daysInMonth = getDaysInCurrentMonth();
+  let count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][d] : "";
+    const staff = staffList.find(s => s.name === staffName);
+    if (staff && staff.type === 'manager') {
+      if (val === '支援') count++;
+    } else {
+      if (val === '休') count++;
+    }
+  }
+  return count;
 }
 
 function initTable() {
@@ -798,21 +838,29 @@ function initTable() {
         let newVal = "";
         const val = scheduleData[monthKey][staff.name][d] || "";
 
-        if (staff.type === 'aming') {
-          let idx = amingShifts.indexOf(val);
-          newVal = amingShifts[(idx + 1) % amingShifts.length];
-        } else if (staff.type === 'hsiaofang') {
-          let idx = hsiaofangShifts.indexOf(val);
-          newVal = hsiaofangShifts[(idx + 1) % hsiaofangShifts.length];
-        } else if (staff.type === 'manager') {
-          let idx = managerShifts.indexOf(val);
-          newVal = managerShifts[(idx + 1) % managerShifts.length];
-        } else if (staff.name === '全明正' || staff.name === '吳駿毅') {
-          let idx = faShifts.indexOf(val);
-          newVal = faShifts[(idx + 1) % faShifts.length];
-        } else {
-          let idx = standardShifts.indexOf(val);
-          newVal = standardShifts[(idx + 1) % standardShifts.length];
+        let shiftsSeq = standardShifts;
+        if (staff.type === 'aming') shiftsSeq = amingShifts;
+        else if (staff.type === 'hsiaofang') shiftsSeq = hsiaofangShifts;
+        else if (staff.type === 'manager') shiftsSeq = managerShifts;
+        else if (staff.name === '全明正' || staff.name === '吳駿毅') shiftsSeq = faShifts;
+
+        let idx = shiftsSeq.indexOf(val);
+        newVal = shiftsSeq[(idx + 1) % shiftsSeq.length];
+
+        // 天數上限稽核攔截
+        const isTargetRest = (staff.type === 'manager') ? (newVal === '支援') : (newVal === '休');
+        const isCurrentRest = (staff.type === 'manager') ? (val === '支援') : (val === '休');
+
+        if (isTargetRest && !isCurrentRest) {
+          const currentRestCount = getCurrentRestDaysCount(staff.name);
+          if (staff.maxRest === 0) {
+            showToast(`⚠️ ${staff.name} 最多休假天數設定為 0 天，無法點選休假！`);
+            return;
+          }
+          if (currentRestCount >= staff.maxRest) {
+            showToast(`⚠️ ${staff.name} 已達最多休假天數 (${staff.maxRest} 天)，無法再增加休假！`);
+            return;
+          }
         }
 
         scheduleData[monthKey][staff.name][d] = newVal;
@@ -989,27 +1037,13 @@ function hasRamenShortage(staffName, day) {
   return getRamenActiveCount(day) < 2;
 }
 
-function getStaffRestCount(staffName) {
-  const monthKey = getMonthKey();
-  const daysInMonth = getDaysInCurrentMonth();
-  let count = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][d] : "";
-    if (val === '休') count++;
-  }
-  return count;
-}
-
 function canStaffTakeRestSafely(staffName, day) {
-  const staffObj = staffList.find(s => s.name === staffName);
+  const staff = staffList.find(s => s.name === staffName);
+  if (!staff) return false;
   
-  // 檢查是否已達到「最多天數」上限
-  if (staffObj && staffObj.maxRest > 0) {
-    const currentRest = getStaffRestCount(staffName);
-    if (currentRest >= staffObj.maxRest) {
-      return false;
-    }
-  }
+  if (staff.maxRest === 0) return false;
+  const currentCount = getCurrentRestDaysCount(staffName);
+  if (currentCount >= staff.maxRest) return false;
 
   const monthKey = getMonthKey();
   for (let rule of mutexRules) {
@@ -1151,14 +1185,6 @@ function closeRuleModal() {
   document.getElementById('ruleModal').style.display = 'none';
 }
 
-function buildDaysDropdown(selectedVal, id) {
-  let options = '';
-  for (let i = 0; i <= 31; i++) {
-    options += `<option value="${i}" ${i == selectedVal ? 'selected' : ''}>${i}</option>`;
-  }
-  return `<select id="${id}">${options}</select>`;
-}
-
 function renderRulesModal() {
   const mutexA = document.getElementById('mutexA');
   const mutexB = document.getElementById('mutexB');
@@ -1184,12 +1210,19 @@ function renderRulesModal() {
   const staffTargetList = document.getElementById('staffTargetList');
   staffTargetList.innerHTML = '';
   staffList.forEach((s, idx) => {
+    let minOptions = '';
+    let maxOptions = '';
+    for (let i = 0; i <= 31; i++) {
+      minOptions += `<option value="${i}" ${s.minRest === i ? 'selected' : ''}>${i}</option>`;
+      maxOptions += `<option value="${i}" ${s.maxRest === i ? 'selected' : ''}>${i}</option>`;
+    }
+
     staffTargetList.innerHTML += `
       <div class="staff-target-card">
         <b>${s.name}</b>
         <div class="staff-target-inputs">
-          最少 ${buildDaysDropdown(s.minRest, `min_${idx}`)} 天，
-          最多 ${buildDaysDropdown(s.maxRest, `max_${idx}`)} 天
+          最少 <select id="min_${idx}">${minOptions}</select> 天，
+          最多 <select id="max_${idx}">${maxOptions}</select> 天
         </div>
       </div>
     `;
@@ -1220,8 +1253,14 @@ function saveRules() {
   staffList.forEach((s, idx) => {
     const minVal = parseInt(document.getElementById(`min_${idx}`).value) || 0;
     const maxVal = parseInt(document.getElementById(`max_${idx}`).value) || 0;
-    s.minRest = minVal;
-    s.maxRest = maxVal;
+
+    if (minVal > maxVal) {
+      s.minRest = maxVal;
+      s.maxRest = maxVal;
+    } else {
+      s.minRest = minVal;
+      s.maxRest = maxVal;
+    }
   });
 
   closeRuleModal();
