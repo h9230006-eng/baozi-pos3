@@ -701,11 +701,11 @@ function saveToStorage() {
 function loadFromStorage() {
   try {
     const savedVer = localStorage.getItem('maidega_version');
-    if (savedVer !== 'v5') {
+    if (savedVer !== 'v6') {
       localStorage.removeItem('maidega_schedule');
       localStorage.removeItem('maidega_staff');
       localStorage.removeItem('maidega_mutex');
-      localStorage.setItem('maidega_version', 'v5');
+      localStorage.setItem('maidega_version', 'v6');
     }
 
     const savedSch = localStorage.getItem('maidega_schedule');
