@@ -701,11 +701,11 @@ function saveToStorage() {
 function loadFromStorage() {
   try {
     const savedVer = localStorage.getItem('maidega_version');
-    if (savedVer !== 'v4') {
+    if (savedVer !== 'v5') {
       localStorage.removeItem('maidega_schedule');
       localStorage.removeItem('maidega_staff');
       localStorage.removeItem('maidega_mutex');
-      localStorage.setItem('maidega_version', 'v4');
+      localStorage.setItem('maidega_version', 'v5');
     }
 
     const savedSch = localStorage.getItem('maidega_schedule');
@@ -1097,9 +1097,9 @@ function refreshTableStyles() {
     if (tr) {
       const cells = tr.querySelectorAll('.cell-cell');
       cells.forEach((td, index) => {
-        const d = index + 1;
-        const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-        updateCellDisplay(td, val, staff.name, d);
+        const day = index + 1;
+        const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+        updateCellDisplay(td, val, staff.name, day);
       });
     }
   });
