@@ -149,7 +149,7 @@ th {
 .col-sticky {
   position: sticky;
   left: 0;
-  background: white;
+  background: white !important;
   z-index: 2;
   font-weight: bold;
   width: 75px !important;
@@ -170,7 +170,7 @@ th {
 
 .staff-name-text {
   writing-mode: horizontal-tb;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: bold;
   color: #6e3a1e;
 }
@@ -191,7 +191,7 @@ th {
 }
 
 th.col-sticky {
-  background: var(--table-header);
+  background: var(--table-header) !important;
   z-index: 3;
   writing-mode: horizontal-tb;
   font-size: 0.75rem;
@@ -555,7 +555,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕或點其他人即可關閉）。點擊格子可切換班別。
+  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕即可取消）。點擊格子可切換班別。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -663,8 +663,8 @@ let mutexRules = [
 
 let scheduleData = {};
 let cellElements = {}; 
-let btnElements = {}; // 紀錄每個人的查詢按鈕 DOM
-let activeHighlightedStaff = null; // 紀錄目前正在查詢可休假的員工姓名
+let btnElements = {}; 
+let activeHighlightedStaff = null; 
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
@@ -766,11 +766,11 @@ function initTable() {
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     
-    // 姓名旁加上「可休」查詢按鈕
     const btnQuery = document.createElement('button');
     btnQuery.className = 'btn-query-rest';
     btnQuery.innerText = '🔍可休';
-    btnQuery.onclick = () => {
+    btnQuery.onclick = (e) => {
+      e.stopPropagation();
       if (activeHighlightedStaff === staff.name) {
         activeHighlightedStaff = null;
       } else {
@@ -842,7 +842,6 @@ function initSummary() {
   tableFoot.innerHTML = '';
   const daysInMonth = getDaysInCurrentMonth();
 
-  // 1. 當日休假人數
   const trRest = document.createElement('tr');
   trRest.className = 'summary-row';
   const tdRestLabel = document.createElement('td');
@@ -866,7 +865,6 @@ function initSummary() {
   trRest.appendChild(tdRestTotal);
   tableFoot.appendChild(trRest);
 
-  // 2. 當日上班人數
   const trWork = document.createElement('tr');
   trWork.className = 'summary-row';
   const tdWorkLabel = document.createElement('td');
@@ -994,7 +992,6 @@ function hasRamenShortage(staffName, day) {
 
 function canStaffTakeRestSafely(staffName, day) {
   const monthKey = getMonthKey();
-  // 檢查互斥規則
   for (let rule of mutexRules) {
     if (rule.a === staffName) {
       const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
@@ -1004,7 +1001,7 @@ function canStaffTakeRestSafely(staffName, day) {
       if (otherVal === '休') return false;
     }
   }
-  // 檢查拉麵人力規則
+
   if (isRamenStaff(staffName, day)) {
     let activeRamen = 0;
     staffList.forEach(s => {
@@ -1039,7 +1036,6 @@ function updateCellDisplay(td, val, staffName, day) {
     td.classList.add('cell-fa');
     td.innerText = val;
   } else if (activeHighlightedStaff === staffName && val === '') {
-    // 依據該員工點擊的按鈕，若該天安全可休則顯示綠色 "O"
     if (canStaffTakeRestSafely(staffName, day)) {
       td.innerText = "O";
       td.style.color = "#16a34a";
@@ -1055,7 +1051,6 @@ function refreshTableStyles() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
 
-  // 更新按鈕樣式與狀態
   staffList.forEach(staff => {
     const btn = btnElements[staff.name];
     if (btn) {
@@ -1216,7 +1211,6 @@ function addNewStaff() {
   }
 }
 
-/* 點擊「📥 匯出/列印」：開啟預覽彈窗 */
 function shareOrExport() {
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
   const auditContent = document.getElementById('mainAuditArea').cloneNode(true);
@@ -1234,7 +1228,6 @@ function closePrintModal() {
   document.getElementById('printModal').style.display = 'none';
 }
 
-/* 離屏渲染產生高解析度、滿版 A4 橫式 PDF */
 function downloadPDF() {
   alert("正在生成高解析度 A4 滿版排班表，請稍候 2 秒...");
 
