@@ -662,7 +662,6 @@ let mutexRules = [
 ];
 
 let scheduleData = {};
-let cellElements = {}; 
 let btnElements = {}; 
 let activeHighlightedStaff = null; 
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
@@ -674,6 +673,7 @@ const faShifts = ["", "休", "發"];
 const standardShifts = ["", "休"];
 
 window.onload = function() {
+  loadFromStorage();
   initTable();
   renderRulesModal();
   runAudit();
@@ -689,6 +689,36 @@ window.onload = function() {
     runAudit();
   });
 };
+
+function saveToStorage() {
+  try {
+    localStorage.setItem('maidega_schedule', JSON.stringify(scheduleData));
+    localStorage.setItem('maidega_staff', JSON.stringify(staffList));
+    localStorage.setItem('maidega_mutex', JSON.stringify(mutexRules));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    // 加入版本號保護，若偵測到舊版快取則自動清除以防衝突
+    const savedVer = localStorage.getItem('maidega_version');
+    if (savedVer !== 'v3') {
+      localStorage.removeItem('maidega_schedule');
+      localStorage.removeItem('maidega_staff');
+      localStorage.removeItem('maidega_mutex');
+      localStorage.setItem('maidega_version', 'v3');
+    }
+
+    const savedSch = localStorage.getItem('maidega_schedule');
+    if (savedSch) scheduleData = JSON.parse(savedSch);
+
+    const savedStaff = localStorage.getItem('maidega_staff');
+    if (savedStaff) staffList = JSON.parse(savedStaff);
+
+    const savedMutex = localStorage.getItem('maidega_mutex');
+    if (savedMutex) mutexRules = JSON.parse(savedMutex);
+  } catch(e) {}
+}
 
 function updateTitle() {
   document.getElementById('displayYear').innerText = document.getElementById('yearSelect').value;
@@ -723,7 +753,6 @@ function initTable() {
   headerRowName.innerHTML = '<th class="col-sticky">姓名/日期</th>';
   headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
   tableBody.innerHTML = '';
-  cellElements = {};
   btnElements = {};
   activeHighlightedStaff = null;
 
@@ -760,9 +789,10 @@ function initTable() {
 
   staffList.forEach(staff => {
     if (!scheduleData[monthKey][staff.name]) scheduleData[monthKey][staff.name] = {};
-    if (!cellElements[staff.name]) cellElements[staff.name] = {};
 
     const tr = document.createElement('tr');
+    tr.setAttribute('data-staff', staff.name);
+
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     
@@ -790,7 +820,7 @@ function initTable() {
     for (let d = 1; d <= daysInMonth; d++) {
       const td = document.createElement('td');
       td.className = 'cell-cell';
-      cellElements[staff.name][d] = td;
+      td.setAttribute('data-day', d);
 
       const currentVal = scheduleData[monthKey][staff.name][d] || "";
       updateCellDisplay(td, currentVal, staff.name, d);
@@ -817,6 +847,7 @@ function initTable() {
         }
 
         scheduleData[monthKey][staff.name][d] = newVal;
+        saveToStorage();
         refreshTableStyles();
         runAudit();
       };
@@ -978,7 +1009,7 @@ function getRamenActiveCount(day) {
   const monthKey = getMonthKey();
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (val !== '休') count++;
     }
   });
@@ -1063,12 +1094,14 @@ function refreshTableStyles() {
       }
     }
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const td = cellElements[staff.name] && cellElements[staff.name][d];
-      if (td) {
+    const tr = document.querySelector(`tr[data-staff="${staff.name}"]`);
+    if (tr) {
+      const cells = tr.querySelectorAll('.cell-cell');
+      cells.forEach((td, index) => {
+        const d = index + 1;
         const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
         updateCellDisplay(td, val, staff.name, d);
-      }
+      });
     }
   });
   updateSummary();
@@ -1176,6 +1209,7 @@ function addMutex() {
     return;
   }
   mutexRules.push({ a, b });
+  saveToStorage();
   renderRulesModal();
   refreshTableStyles();
   runAudit();
@@ -1183,6 +1217,7 @@ function addMutex() {
 
 function removeMutex(idx) {
   mutexRules.splice(idx, 1);
+  saveToStorage();
   renderRulesModal();
   refreshTableStyles();
   runAudit();
@@ -1196,6 +1231,7 @@ function saveRules() {
     s.maxRest = maxVal;
   });
 
+  saveToStorage();
   closeRuleModal();
   refreshTableStyles();
   runAudit();
@@ -1206,6 +1242,7 @@ function addNewStaff() {
   const name = prompt("請輸入新人員姓名：");
   if (name) {
     staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0 });
+    saveToStorage();
     initTable();
     runAudit();
   }
