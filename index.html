@@ -1165,6 +1165,29 @@ function runAudit() {
   const monthKey = getMonthKey();
   const currentMonthStr = document.getElementById('monthSelect').value;
 
+  // 1. 每日當日上班人數稽核（不足 5 人跳出警告）
+  for (let d = 1; d <= daysInMonth; d++) {
+    let workCount = 0;
+    staffList.forEach(staff => {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
+      
+      if (staff.name === '禹伯海' || staff.name === '謝嘉昌') {
+        // 不計入當日上班人數
+      } else if (staff.type === 'manager') {
+        if (val === '支援') workCount++;
+      } else if (staff.name === '阿明' || staff.name === '曉芳') {
+        if (val && val !== '休') workCount++;
+      } else {
+        if (val !== '休') workCount++;
+      }
+    });
+
+    if (workCount < 5) {
+      logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日當日上班人數僅 ${workCount} 人（不足 5 人）</span>`);
+    }
+  }
+
+  // 2. 拉麵人力稽核（至少 2 人）
   for (let d = 1; d <= daysInMonth; d++) {
     let activeRamenCount = getRamenActiveCount(d);
     if (activeRamenCount < 2) {
@@ -1172,6 +1195,7 @@ function runAudit() {
     }
   }
 
+  // 3. 互斥休假稽核
   for (let d = 1; d <= daysInMonth; d++) {
     mutexRules.forEach(rule => {
       const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
@@ -1182,6 +1206,7 @@ function runAudit() {
     });
   }
 
+  // 4. 個人月休天數目標稽核
   staffList.forEach(staff => {
     let restDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
@@ -1204,7 +1229,7 @@ function runAudit() {
   });
 
   if (logs.length === 0) {
-    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與拉麵人力稽核均符合標準。</span>';
+    auditList.innerHTML = '<span class="audit-item-ok">✅ 所有排假規則與每日人力稽核均符合標準。</span>';
   } else {
     auditList.innerHTML = logs.join('<br>');
   }
