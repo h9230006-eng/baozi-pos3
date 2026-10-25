@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -5,9 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
 
-<!-- 引入 HTML 轉 PDF 必備套件 -->
-<script src="[https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js](https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js)"></script>
-<script src="[https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js](https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js)"></script>
+<!-- 引入 HTML 轉 PDF 必備套件 (修正 Script URL 格式) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 :root {
@@ -1363,36 +1364,44 @@ function downloadPDF() {
   exportArea.appendChild(tableContent);
   exportArea.appendChild(auditContent);
 
-  html2canvas(exportArea, {
-    scale: 2,
-    useCORS: true,
-    width: 1500
-  }).then(canvas => {
-    const imgData = canvas.toDataURL('image/png');
-    const { jsPDF } = window.jspdf;
+  // 延遲渲染確保元素完全塞入 DOM 節點
+  setTimeout(() => {
+    html2canvas(exportArea, {
+      scale: 2,
+      useCORS: true,
+      width: 1500,
+      windowWidth: 1500
+    }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
 
-    const pdf = new jsPDF('l', 'mm', 'a4');
-    const pdfWidth = 297;
-    const pdfHeight = 210;
-    const margin = 5;
+      const pdf = new jsPDF('l', 'mm', 'a4');
+      const pdfWidth = 297;
+      const pdfHeight = 210;
+      const margin = 5;
 
-    const printableWidth = pdfWidth - (margin * 2);
-    const printableHeight = pdfHeight - (margin * 2);
+      const printableWidth = pdfWidth - (margin * 2);
+      const printableHeight = pdfHeight - (margin * 2);
 
-    let imgWidth = printableWidth;
-    let imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let imgWidth = printableWidth;
+      let imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    if (imgHeight > printableHeight) {
-      imgHeight = printableHeight;
-      imgWidth = (canvas.width * imgHeight) / canvas.height;
-    }
+      if (imgHeight > printableHeight) {
+        imgHeight = printableHeight;
+        imgWidth = (canvas.width * imgHeight) / canvas.height;
+      }
 
-    pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
-    pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
+      pdf.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
+      pdf.save(`麥德加饅頭_苗栗店_${year}年${month}月排班表.pdf`);
 
-    exportArea.innerHTML = '';
-  });
+      exportArea.innerHTML = '';
+    }).catch(err => {
+      console.error("PDF Export error:", err);
+      showToast("❌ PDF 生成失敗，請重試！");
+    });
+  }, 300);
 }
 </script>
 </body>
 </html>
+```
