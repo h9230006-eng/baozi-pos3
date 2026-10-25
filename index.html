@@ -661,7 +661,7 @@ th.col-sticky {
 
     </div>
     <div class="modal-footer">
-      <button class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
+      <button type="button" class="btn-save-rules" onclick="saveRules()">儲存並套用設定</button>
     </div>
   </div>
 </div>
@@ -987,9 +987,17 @@ function updateSummary() {
         }
       }
 
-      if (staff.type === 'manager') {
-        if (val === '') workCount++;
+      // 剔除非正常時間上班人員（禹伯海、謝嘉昌）不計入上班人數
+      if (staff.name === '禹伯海' || staff.name === '謝嘉昌') {
+        // 不計入當日上班人數
+      } else if (staff.type === 'manager') {
+        // 經理僅在點選「支援」時才計入當日上班人數
+        if (val === '支援') workCount++;
+      } else if (staff.name === '阿明' || staff.name === '曉芳') {
+        // 阿明與曉芳點選選單內容時（非空格且非休）才計入當日上班人數
+        if (val && val !== '休') workCount++;
       } else {
+        // 其餘正職人員非「休」時計入當日上班人數
         if (val !== '休') workCount++;
       }
     });
@@ -1251,12 +1259,13 @@ function renderRulesModal() {
         <div style="display: flex; align-items: center; gap: 8px;">
           <b>${s.name}</b>
           <button type="button" 
+                  id="toggle_btn_${idx}"
                   class="toggle-btn ${isChecked ? 'on' : 'off'}"
                   onclick="toggleStaffLimits(${idx})">
             ${isChecked ? '開' : '關'}
           </button>
         </div>
-        <div class="staff-target-inputs" style="opacity: ${!s.enableLimits ? '0.4' : '1'}">
+        <div class="staff-target-inputs" id="target_inputs_${idx}" style="opacity: ${!s.enableLimits ? '0.4' : '1'}">
           最少 <select id="min_${idx}" ${disabledAttr}>${minOptions}</select> 天，
           最多 <select id="max_${idx}" ${disabledAttr}>${maxOptions}</select> 天
         </div>
@@ -1267,7 +1276,22 @@ function renderRulesModal() {
 
 function toggleStaffLimits(idx) {
   staffList[idx].enableLimits = !staffList[idx].enableLimits;
-  renderRulesModal();
+  const btn = document.getElementById(`toggle_btn_${idx}`);
+  const container = document.getElementById(`target_inputs_${idx}`);
+  const minSelect = document.getElementById(`min_${idx}`);
+  const maxSelect = document.getElementById(`max_${idx}`);
+
+  if (staffList[idx].enableLimits) {
+    if (btn) { btn.innerText = '開'; btn.className = 'toggle-btn on'; }
+    if (container) container.style.opacity = '1';
+    if (minSelect) minSelect.disabled = false;
+    if (maxSelect) maxSelect.disabled = false;
+  } else {
+    if (btn) { btn.innerText = '關'; btn.className = 'toggle-btn off'; }
+    if (container) container.style.opacity = '0.4';
+    if (minSelect) minSelect.disabled = true;
+    if (maxSelect) maxSelect.disabled = true;
+  }
 }
 
 function addMutex() {
@@ -1292,13 +1316,16 @@ function removeMutex(idx) {
 }
 
 function saveRules() {
-  staffList.forEach((s, idx) => {
-    const minEl = document.getElementById(`min_${idx}`);
-    const maxEl = document.getElementById(`max_${idx}`);
-    
-    if (minEl && maxEl) {
-      const minVal = parseInt(minEl.value) || 0;
-      const maxVal = parseInt(maxEl.value) || 0;
+  try {
+    staffList.forEach((s, idx) => {
+      const minEl = document.getElementById(`min_${idx}`);
+      const maxEl = document.getElementById(`max_${idx}`);
+
+      let minVal = minEl ? parseInt(minEl.value, 10) : s.minRest;
+      let maxVal = maxEl ? parseInt(maxEl.value, 10) : s.maxRest;
+
+      if (isNaN(minVal)) minVal = s.minRest || 0;
+      if (isNaN(maxVal)) maxVal = s.maxRest || 0;
 
       if (minVal > maxVal) {
         s.minRest = maxVal;
@@ -1307,13 +1334,16 @@ function saveRules() {
         s.minRest = minVal;
         s.maxRest = maxVal;
       }
-    }
-  });
+    });
 
-  closeRuleModal();
-  refreshTableStyles();
-  runAudit();
-  alert("排假規則與參數設定已成功儲存並套用！");
+    closeRuleModal();
+    refreshTableStyles();
+    runAudit();
+    showToast("✅ 排假規則與參數設定已儲存！");
+  } catch (err) {
+    console.error("Save rules error:", err);
+    showToast("❌ 儲存失敗，請重試");
+  }
 }
 
 function addNewStaff() {
@@ -1344,7 +1374,7 @@ function closePrintModal() {
 }
 
 function downloadPDF() {
-  alert("正在生成高解析度 A4 滿版排班表，請稍候 2 秒...");
+  showToast("正在生成高解析度 A4 滿版排班表，請稍候...");
 
   const exportArea = document.getElementById('pdfExportArea');
   const tableContent = document.getElementById('mainTableArea').cloneNode(true);
