@@ -435,12 +435,12 @@ th.col-sticky {
   font-size: 0.85rem;
 }
 
-.staff-target-inputs input {
-  width: 45px;
-  padding: 4px;
-  text-align: center;
+.staff-target-inputs select {
+  padding: 4px 6px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  background: white;
+  font-weight: bold;
 }
 
 .modal-footer {
@@ -989,7 +989,28 @@ function hasRamenShortage(staffName, day) {
   return getRamenActiveCount(day) < 2;
 }
 
+function getStaffRestCount(staffName) {
+  const monthKey = getMonthKey();
+  const daysInMonth = getDaysInCurrentMonth();
+  let count = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][d] : "";
+    if (val === '休') count++;
+  }
+  return count;
+}
+
 function canStaffTakeRestSafely(staffName, day) {
+  const staffObj = staffList.find(s => s.name === staffName);
+  
+  // 檢查是否已達到「最多天數」上限
+  if (staffObj && staffObj.maxRest > 0) {
+    const currentRest = getStaffRestCount(staffName);
+    if (currentRest >= staffObj.maxRest) {
+      return false;
+    }
+  }
+
   const monthKey = getMonthKey();
   for (let rule of mutexRules) {
     if (rule.a === staffName) {
@@ -1130,6 +1151,14 @@ function closeRuleModal() {
   document.getElementById('ruleModal').style.display = 'none';
 }
 
+function buildDaysDropdown(selectedVal, id) {
+  let options = '';
+  for (let i = 0; i <= 31; i++) {
+    options += `<option value="${i}" ${i == selectedVal ? 'selected' : ''}>${i}</option>`;
+  }
+  return `<select id="${id}">${options}</select>`;
+}
+
 function renderRulesModal() {
   const mutexA = document.getElementById('mutexA');
   const mutexB = document.getElementById('mutexB');
@@ -1159,8 +1188,8 @@ function renderRulesModal() {
       <div class="staff-target-card">
         <b>${s.name}</b>
         <div class="staff-target-inputs">
-          最少 <input type="number" id="min_${idx}" value="${s.minRest}"> 天，
-          最多 <input type="number" id="max_${idx}" value="${s.maxRest}"> 天
+          最少 ${buildDaysDropdown(s.minRest, `min_${idx}`)} 天，
+          最多 ${buildDaysDropdown(s.maxRest, `max_${idx}`)} 天
         </div>
       </div>
     `;
