@@ -145,28 +145,49 @@ th {
   white-space: nowrap;
 }
 
-/* 1. 姓名欄位直書優化 */
+/* 1. 姓名欄位與查詢按鈕優化 */
 .col-sticky {
   position: sticky;
   left: 0;
   background: white;
   z-index: 2;
   font-weight: bold;
-  width: 55px !important;
-  min-width: 55px !important;
-  max-width: 55px !important;
+  width: 75px !important;
+  min-width: 75px !important;
+  max-width: 75px !important;
   box-shadow: 2px 0 4px rgba(0,0,0,0.05);
   vertical-align: middle;
   text-align: center;
+  padding: 4px 2px;
+}
+
+.name-cell-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .staff-name-text {
-  writing-mode: vertical-rl;
-  text-orientation: upright;
-  letter-spacing: 2px;
-  margin: 0 auto;
-  display: inline-block;
-  font-size: 0.85rem;
+  writing-mode: horizontal-tb;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #6e3a1e;
+}
+
+.btn-query-rest {
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  padding: 2px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-query-rest.active {
+  background: #dc2626;
 }
 
 th.col-sticky {
@@ -174,6 +195,8 @@ th.col-sticky {
   z-index: 3;
   writing-mode: horizontal-tb;
   font-size: 0.75rem;
+  width: 75px !important;
+  min-width: 75px !important;
 }
 
 /* 2. 日期格子寬度與內文不重疊優化 */
@@ -476,7 +499,7 @@ th.col-sticky {
   border-radius: 8px;
 }
 
-/* 5. 專用離屏 PDF 繪製區（擴寬至 1500px，確保 1~31日 + 寬欄位完美舒展） */
+/* 5. 專用離屏 PDF 繪製區 */
 #pdfExportArea {
   position: absolute;
   left: -9999px;
@@ -532,7 +555,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊格子即可切換班別（全明正與吳駿毅點 1 次休、點 2 次發；其他人點 1 次休）。
+  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕或點其他人即可關閉）。點擊格子可切換班別。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -572,9 +595,7 @@ th.col-sticky {
       <button onclick="closePrintModal()" style="padding: 6px 12px; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">✕ 關閉</button>
     </div>
   </div>
-  <div class="print-preview-container" id="printPreviewContent">
-    <!-- 複製主表格與稽核結果至此供預覽 -->
-  </div>
+  <div class="print-preview-container" id="printPreviewContent"></div>
 </div>
 
 <!-- 離屏隱藏 PDF 轉繪區 -->
@@ -642,6 +663,8 @@ let mutexRules = [
 
 let scheduleData = {};
 let cellElements = {}; 
+let btnElements = {}; // 紀錄每個人的查詢按鈕 DOM
+let activeHighlightedStaff = null; // 紀錄目前正在查詢可休假的員工姓名
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
 const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~15:00"];
@@ -701,6 +724,8 @@ function initTable() {
   headerRowDay.innerHTML = '<th class="col-sticky">星期</th>';
   tableBody.innerHTML = '';
   cellElements = {};
+  btnElements = {};
+  activeHighlightedStaff = null;
 
   const daysInMonth = getDaysInCurrentMonth();
   const startDayOfWeek = getStartDayOfWeek();
@@ -741,8 +766,25 @@ function initTable() {
     const tdName = document.createElement('td');
     tdName.className = 'col-sticky';
     
-    // 套用姓名直書模式
-    tdName.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
+    // 姓名旁加上「可休」查詢按鈕
+    const btnQuery = document.createElement('button');
+    btnQuery.className = 'btn-query-rest';
+    btnQuery.innerText = '🔍可休';
+    btnQuery.onclick = () => {
+      if (activeHighlightedStaff === staff.name) {
+        activeHighlightedStaff = null;
+      } else {
+        activeHighlightedStaff = staff.name;
+      }
+      refreshTableStyles();
+    };
+    btnElements[staff.name] = btnQuery;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'name-cell-inner';
+    nameDiv.innerHTML = `<span class="staff-name-text">${staff.name}</span>`;
+    nameDiv.appendChild(btnQuery);
+    tdName.appendChild(nameDiv);
     tr.appendChild(tdName);
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -807,7 +849,7 @@ function initSummary() {
   tdRestLabel.className = 'col-sticky';
   tdRestLabel.style.backgroundColor = 'var(--summary-bg)';
   tdRestLabel.style.zIndex = '2';
-  tdRestLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日休假人數</span>';
+  tdRestLabel.innerHTML = '<span style="font-size:0.7rem;">當日休假人數</span>';
   trRest.appendChild(tdRestLabel);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -831,7 +873,7 @@ function initSummary() {
   tdWorkLabel.className = 'col-sticky';
   tdWorkLabel.style.backgroundColor = 'var(--summary-bg)';
   tdWorkLabel.style.zIndex = '2';
-  tdWorkLabel.innerHTML = '<span style="writing-mode:horizontal-tb; font-size:0.75rem;">當日上班人數</span>';
+  tdWorkLabel.innerHTML = '<span style="font-size:0.7rem;">當日上班人數</span>';
   trWork.appendChild(tdWorkLabel);
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -856,13 +898,9 @@ function updateSummary() {
     for (let d = 1; d <= daysInMonth; d++) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       if (staff.type === 'manager') {
-        if (val === '支援') {
-          restDays++;
-        }
+        if (val === '支援') restDays++;
       } else {
-        if (val === '休') {
-          restDays++;
-        }
+        if (val === '休') restDays++;
       }
     }
     const restCountEl = document.getElementById(`rest_count_${staff.name}`);
@@ -878,26 +916,16 @@ function updateSummary() {
     staffList.forEach(staff => {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
       
-      // 當日休假人數 (曉芳、阿明不計入休假人數)
       if (val === '休') {
         if (staff.name !== '曉芳' && staff.name !== '阿明') {
           restCount++;
         }
       }
 
-      // 當日上班人數邏輯更新
       if (staff.type === 'manager') {
-        if (val === '支援') {
-          workCount++;
-        }
-      } else if (staff.type === 'hsiaofang') {
-        if (val === '03:00~10:00' || val === '03:00~12:00' || val === '02:30~10:00') {
-          workCount++;
-        }
+        if (val === '') workCount++;
       } else {
-        if (val !== '休') {
-          workCount++;
-        }
+        if (val !== '休') workCount++;
       }
     });
 
@@ -953,9 +981,7 @@ function getRamenActiveCount(day) {
   staffList.forEach(staff => {
     if (isRamenStaff(staff.name, day)) {
       const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][day] : "";
-      if (val !== '休') {
-        count++;
-      }
+      if (val !== '休') count++;
     }
   });
   return count;
@@ -966,30 +992,82 @@ function hasRamenShortage(staffName, day) {
   return getRamenActiveCount(day) < 2;
 }
 
+function canStaffTakeRestSafely(staffName, day) {
+  const monthKey = getMonthKey();
+  // 檢查互斥規則
+  for (let rule of mutexRules) {
+    if (rule.a === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
+      if (otherVal === '休') return false;
+    } else if (rule.b === staffName) {
+      const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][day] : "";
+      if (otherVal === '休') return false;
+    }
+  }
+  // 檢查拉麵人力規則
+  if (isRamenStaff(staffName, day)) {
+    let activeRamen = 0;
+    staffList.forEach(s => {
+      if (isRamenStaff(s.name, day)) {
+        const v = (s.name === staffName) ? "休" : (scheduleData[monthKey] && scheduleData[monthKey][s.name] ? scheduleData[monthKey][s.name][day] : "");
+        if (v !== '休') activeRamen++;
+      }
+    });
+    if (activeRamen < 2) return false;
+  }
+  return true;
+}
+
 function updateCellDisplay(td, val, staffName, day) {
   td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict');
+  td.style.color = "";
+  td.style.fontWeight = "bold";
 
   const isMutex = hasMutexConflict(staffName, day);
   const isRamenErr = hasRamenShortage(staffName, day);
 
   if (isMutex || isRamenErr) {
     td.classList.add('cell-conflict');
+    td.innerText = val ? val : '';
   } else if (val === '休') {
     td.classList.add('cell-rest');
+    td.innerText = val;
   } else if (val === '支援') {
     td.classList.add('cell-support');
+    td.innerText = val;
   } else if (val === '發') {
     td.classList.add('cell-fa');
+    td.innerText = val;
+  } else if (activeHighlightedStaff === staffName && val === '') {
+    // 依據該員工點擊的按鈕，若該天安全可休則顯示綠色 "O"
+    if (canStaffTakeRestSafely(staffName, day)) {
+      td.innerText = "O";
+      td.style.color = "#16a34a";
+    } else {
+      td.innerText = '';
+    }
+  } else {
+    td.innerText = val ? val : '';
   }
-
-  td.innerText = val ? val : '';
 }
 
 function refreshTableStyles() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
 
+  // 更新按鈕樣式與狀態
   staffList.forEach(staff => {
+    const btn = btnElements[staff.name];
+    if (btn) {
+      if (activeHighlightedStaff === staff.name) {
+        btn.innerText = '✕關閉';
+        btn.classList.add('active');
+      } else {
+        btn.innerText = '🔍可休';
+        btn.classList.remove('active');
+      }
+    }
+
     for (let d = 1; d <= daysInMonth; d++) {
       const td = cellElements[staff.name] && cellElements[staff.name][d];
       if (td) {
