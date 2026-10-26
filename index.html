@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>苗栗店 - 麥德加專業饅頭 輪休排班管理系統</title>
 
-<!-- 引入 HTML 轉 PDF 必備套件 (修正 Script URL 格式) -->
+<!-- 引入 HTML 轉 PDF 必備套件 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -22,6 +22,8 @@
   --rest-text: #166534;
   --support-bg: #e0f2fe;
   --support-text: #0369a1;
+  --delivery-bg: #fef3c7;
+  --delivery-text: #b45309;
   --fa-bg: #ffedd5;
   --fa-text: #9a3412;
   --alert-bg: #fee2e2;
@@ -223,6 +225,12 @@ th.col-sticky {
 .cell-support {
   background-color: var(--support-bg) !important;
   color: var(--support-text) !important;
+  font-weight: bold;
+}
+
+.cell-delivery {
+  background-color: var(--delivery-bg) !important;
+  color: var(--delivery-text) !important;
   font-weight: bold;
 }
 
@@ -578,7 +586,7 @@ th.col-sticky {
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕或點其他人即可關閉）。點擊格子可切換班別。
+  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕或點其他人即可關閉）。點擊格子可切換班別（阿文包含「送貨」班別）。
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -638,7 +646,7 @@ th.col-sticky {
       <!-- 人員休假互斥 -->
       <div class="rule-section">
         <div class="rule-section-title">🤼 人員休假互斥規則</div>
-        <div class="rule-section-desc">設定兩人不能同一天休假</div>
+        <div class="rule-section-desc">設定兩人不能同一天休假（若阿文排「送貨」，鐘孝謙與謝嘉昌互斥自動解除）</div>
         
         <div class="mutex-box">
           <select id="mutexA"></select>
@@ -668,7 +676,7 @@ th.col-sticky {
 let staffList = [
   { name: "全明正", type: "normal", minRest: 0, maxRest: 0, enableLimits: true },
   { name: "吳駿毅", type: "ramen", minRest: 0, maxRest: 0, enableLimits: true },
-  { name: "阿文", type: "ramen", minRest: 0, maxRest: 0, enableLimits: true },
+  { name: "阿文", type: "awen", minRest: 0, maxRest: 0, enableLimits: true },
   { name: "謝嘉昌", type: "normal", minRest: 0, maxRest: 0, enableLimits: false },
   { name: "鐘孝謙", type: "ramen", minRest: 0, maxRest: 0, enableLimits: true },
   { name: "阿勳", type: "ramen", minRest: 0, maxRest: 0, enableLimits: true },
@@ -679,6 +687,9 @@ let staffList = [
   { name: "曉芳", type: "hsiaofang", minRest: 0, maxRest: 0, enableLimits: false },
   { name: "阿燁", type: "normal", minRest: 0, maxRest: 0, enableLimits: true }
 ];
+
+// 指定基礎上班人員清單 (7位)
+const coreWorkStaffs = ["全明正", "吳駿毅", "阿文", "鐘孝謙", "阿勳", "阿志", "阿燁"];
 
 let mutexRules = [
   { a: "全明正", b: "吳駿毅" },
@@ -692,14 +703,16 @@ let btnElements = {};
 let activeHighlightedStaff = null;
 const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
 
-const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "10:00~14:00"];
+const amingShifts = ["", "休", "03:00~07:00", "03:00~07:00\n發麵休息", "05:00", "10:00~14:00"];
 const hsiaofangShifts = ["", "休", "03:00~10:00", "03:00~12:00", "02:30~10:00"];
 const managerShifts = ["", "支援"];
 const faShifts = ["", "休", "發"];
+const awenShifts = ["", "休", "送貨"];
 const standardShifts = ["", "休"];
 
 function showToast(msg) {
   const t = document.getElementById('toastMsg');
+  if (!t) return;
   t.innerText = msg;
   t.style.opacity = '1';
   setTimeout(() => { t.style.opacity = '0'; }, 2000);
@@ -850,6 +863,7 @@ function initTable() {
         if (staff.type === 'aming') shiftsOptions = amingShifts;
         else if (staff.type === 'hsiaofang') shiftsOptions = hsiaofangShifts;
         else if (staff.type === 'manager') shiftsOptions = managerShifts;
+        else if (staff.type === 'awen') shiftsOptions = awenShifts;
         else if (staff.name === '全明正' || staff.name === '吳駿毅') shiftsOptions = faShifts;
 
         let idx = shiftsOptions.indexOf(val);
@@ -940,6 +954,31 @@ function initSummary() {
   tableFoot.appendChild(trWork);
 }
 
+// 取得特定日期的上班總人數（精確邏輯）
+function getWorkCountForDay(d) {
+  const monthKey = getMonthKey();
+  let workCount = 0;
+
+  // 1. 計算 7 位指定預設上班人員（未排休即算上班）
+  coreWorkStaffs.forEach(name => {
+    const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
+    if (val !== '休') {
+      workCount++;
+    }
+  });
+
+  // 2. 謝嘉昌、禹伯海、經理、阿明、曉芳（預設空白或休不計入，手動點選具體班別才 +1）
+  const otherStaffs = ["謝嘉昌", "禹伯海", "經理", "阿明", "曉芳"];
+  otherStaffs.forEach(name => {
+    const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
+    if (val && val !== '休') {
+      workCount++;
+    }
+  });
+
+  return workCount;
+}
+
 function updateSummary() {
   const daysInMonth = getDaysInCurrentMonth();
   const monthKey = getMonthKey();
@@ -962,32 +1001,21 @@ function updateSummary() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     let restCount = 0;
-    let workCount = 0;
 
-    staffList.forEach(staff => {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      
+    // 計算當日休假人數 (採計 7 位固定上班人員中排休者)
+    coreWorkStaffs.forEach(name => {
+      const val = scheduleData[monthKey] && scheduleData[monthKey][name] ? scheduleData[monthKey][name][d] : "";
       if (val === '休') {
-        if (staff.name !== '曉芳' && staff.name !== '阿明') {
-          restCount++;
-        }
-      }
-
-      if (['禹伯海', '謝嘉昌'].includes(staff.name)) {
-        return;
-      } else if (staff.name === '經理') {
-        if (val === '支援') workCount++;
-      } else if (['阿明', '曉芳'].includes(staff.name)) {
-        if (val !== '' && val !== '休') workCount++;
-      } else {
-        if (val !== '休') workCount++;
+        restCount++;
       }
     });
+
+    const workCount = getWorkCountForDay(d);
 
     const restCell = document.getElementById(`summary_rest_${d}`);
     const workCell = document.getElementById(`summary_work_${d}`);
 
-    if (restCell) restCell.innerText = restCount > 0 ? `${restCount}人` : '0人';
+    if (restCell) restCell.innerText = `${restCount}人`;
     if (workCell) workCell.innerText = `${workCount}人`;
   }
 }
@@ -997,7 +1025,15 @@ function hasMutexConflict(staffName, day) {
   const val = scheduleData[monthKey] && scheduleData[monthKey][staffName] ? scheduleData[monthKey][staffName][day] : "";
   if (val !== '休') return false;
 
+  const awenVal = scheduleData[monthKey] && scheduleData[monthKey]["阿文"] ? scheduleData[monthKey]["阿文"][day] : "";
+
   for (let rule of mutexRules) {
+    if ((rule.a === "鐘孝謙" && rule.b === "謝嘉昌") || (rule.a === "謝嘉昌" && rule.b === "鐘孝謙")) {
+      if (awenVal === "送貨") {
+        continue;
+      }
+    }
+
     if (rule.a === staffName) {
       const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
       if (otherVal === '休') return true;
@@ -1057,7 +1093,15 @@ function canStaffTakeRestSafely(staffName, day) {
   }
 
   const monthKey = getMonthKey();
+  const awenVal = scheduleData[monthKey] && scheduleData[monthKey]["阿文"] ? scheduleData[monthKey]["阿文"][day] : "";
+
   for (let rule of mutexRules) {
+    if ((rule.a === "鐘孝謙" && rule.b === "謝嘉昌") || (rule.a === "謝嘉昌" && rule.b === "鐘孝謙")) {
+      if (awenVal === "送貨") {
+        continue;
+      }
+    }
+
     if (rule.a === staffName) {
       const otherVal = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][day] : "";
       if (otherVal === '休') return false;
@@ -1080,7 +1124,7 @@ function canStaffTakeRestSafely(staffName, day) {
 }
 
 function updateCellDisplay(td, val, staffName, day) {
-  td.classList.remove('cell-rest', 'cell-support', 'cell-fa', 'cell-conflict');
+  td.classList.remove('cell-rest', 'cell-support', 'cell-delivery', 'cell-fa', 'cell-conflict');
   td.style.color = "";
   td.style.fontWeight = "bold";
 
@@ -1095,6 +1139,9 @@ function updateCellDisplay(td, val, staffName, day) {
     td.innerText = val;
   } else if (val === '支援') {
     td.classList.add('cell-support');
+    td.innerText = val;
+  } else if (val === '送貨') {
+    td.classList.add('cell-delivery');
     td.innerText = val;
   } else if (val === '發') {
     td.classList.add('cell-fa');
@@ -1152,19 +1199,7 @@ function runAudit() {
       logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日拉麵在勤人員僅 ${activeRamenCount} 人（至少需 2 人）</span>`);
     }
 
-    let dailyWorkCount = 0;
-    staffList.forEach(staff => {
-      const val = scheduleData[monthKey] && scheduleData[monthKey][staff.name] ? scheduleData[monthKey][staff.name][d] : "";
-      if (['禹伯海', '謝嘉昌'].includes(staff.name)) {
-        return;
-      } else if (staff.name === '經理') {
-        if (val === '支援') dailyWorkCount++;
-      } else if (['阿明', '曉芳'].includes(staff.name)) {
-        if (val !== '' && val !== '休') dailyWorkCount++;
-      } else {
-        if (val !== '休') dailyWorkCount++;
-      }
-    });
+    let dailyWorkCount = getWorkCountForDay(d);
 
     if (dailyWorkCount < 5) {
       logs.push(`<span class="audit-item-error">⚠️ ${currentMonthStr}月 ${d} 日當日上班人數僅 ${dailyWorkCount} 人（不足 5 人）</span>`);
@@ -1172,7 +1207,15 @@ function runAudit() {
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
+    const awenVal = scheduleData[monthKey] && scheduleData[monthKey]["阿文"] ? scheduleData[monthKey]["阿文"][d] : "";
+
     mutexRules.forEach(rule => {
+      if ((rule.a === "鐘孝謙" && rule.b === "謝嘉昌") || (rule.a === "謝嘉昌" && rule.b === "鐘孝謙")) {
+        if (awenVal === "送貨") {
+          return;
+        }
+      }
+
       const valA = scheduleData[monthKey] && scheduleData[monthKey][rule.a] ? scheduleData[monthKey][rule.a][d] : "";
       const valB = scheduleData[monthKey] && scheduleData[monthKey][rule.b] ? scheduleData[monthKey][rule.b][d] : "";
       if (valA === "休" && valB === "休") {
@@ -1225,6 +1268,11 @@ function generateDayOptions(selectedVal) {
 }
 
 function toggleStaffLimit(idx) {
+  const minEl = document.getElementById(`min_${idx}`);
+  const maxEl = document.getElementById(`max_${idx}`);
+  if (minEl) staffList[idx].minRest = parseInt(minEl.value, 10) || 0;
+  if (maxEl) staffList[idx].maxRest = parseInt(maxEl.value, 10) || 0;
+  
   staffList[idx].enableLimits = !staffList[idx].enableLimits;
   renderRulesModal();
 }
@@ -1262,7 +1310,7 @@ function renderRulesModal() {
       <div class="staff-target-card">
         <div style="display:flex; align-items:center; gap:6px;">
           <b>${s.name}</b>
-          <button class="btn-toggle-limit ${btnClass}" onclick="toggleStaffLimit(${idx})">${btnText}</button>
+          <button type="button" class="btn-toggle-limit ${btnClass}" onclick="toggleStaffLimit(${idx})">${btnText}</button>
         </div>
         <div class="staff-target-inputs">
           最少 <select id="min_${idx}" ${!isEnabled ? 'disabled' : ''}>${generateDayOptions(s.minRest)}</select> 天，
@@ -1294,37 +1342,32 @@ function removeMutex(idx) {
 }
 
 function saveRules() {
-  try {
-    staffList.forEach((s, idx) => {
-      const minEl = document.getElementById(`min_${idx}`);
-      const maxEl = document.getElementById(`max_${idx}`);
-      
-      let minVal = minEl ? parseInt(minEl.value, 10) : s.minRest;
-      let maxVal = maxEl ? parseInt(maxEl.value, 10) : s.maxRest;
+  staffList.forEach((s, idx) => {
+    const minEl = document.getElementById(`min_${idx}`);
+    const maxEl = document.getElementById(`max_${idx}`);
+    
+    let minVal = minEl ? parseInt(minEl.value, 10) : s.minRest;
+    let maxVal = maxEl ? parseInt(maxEl.value, 10) : s.maxRest;
 
-      if (isNaN(minVal)) minVal = 0;
-      if (isNaN(maxVal)) maxVal = 0;
+    if (isNaN(minVal)) minVal = 0;
+    if (isNaN(maxVal)) maxVal = 0;
 
-      if (minVal > maxVal) minVal = maxVal;
+    if (minVal > maxVal) minVal = maxVal;
 
-      s.minRest = minVal;
-      s.maxRest = maxVal;
-    });
+    s.minRest = minVal;
+    s.maxRest = maxVal;
+  });
 
-    closeRuleModal();
-    refreshTableStyles();
-    runAudit();
-    showToast("排假規則與參數設定已成功儲存並套用！");
-  } catch (err) {
-    console.error("Save rules error:", err);
-    closeRuleModal();
-  }
+  closeRuleModal();
+  refreshTableStyles();
+  runAudit();
+  showToast("排假規則與參數設定已成功儲存並套用！");
 }
 
 function addNewStaff() {
   const name = prompt("請輸入新人員姓名：");
-  if (name) {
-    staffList.push({ name: name, type: "normal", minRest: 0, maxRest: 0, enableLimits: true });
+  if (name && name.trim() !== '') {
+    staffList.push({ name: name.trim(), type: "normal", minRest: 0, maxRest: 0, enableLimits: true });
     initTable();
     runAudit();
   }
@@ -1364,7 +1407,6 @@ function downloadPDF() {
   exportArea.appendChild(tableContent);
   exportArea.appendChild(auditContent);
 
-  // 延遲渲染確保元素完全塞入 DOM 節點
   setTimeout(() => {
     html2canvas(exportArea, {
       scale: 2,
