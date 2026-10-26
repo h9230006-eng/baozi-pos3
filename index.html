@@ -688,7 +688,7 @@ let staffList = [
   { name: "阿燁", type: "normal", minRest: 0, maxRest: 0, enableLimits: true }
 ];
 
-// 指定基礎上班人員清單 (7位)
+// 指定基礎上班人員清單 (嚴格精準固定 7 位)
 const coreWorkStaffs = ["全明正", "吳駿毅", "阿文", "鐘孝謙", "阿勳", "阿志", "阿燁"];
 
 let mutexRules = [
@@ -945,7 +945,7 @@ function initSummary() {
   for (let d = 1; d <= daysInMonth; d++) {
     const td = document.createElement('td');
     td.id = `summary_work_${d}`;
-    td.innerText = '0人';
+    td.innerText = '7人';
     trWork.appendChild(td);
   }
   const tdWorkTotal = document.createElement('td');
@@ -955,12 +955,12 @@ function initSummary() {
   tableFoot.appendChild(trWork);
 }
 
-// 取得特定日期的上班總人數
+// 取得特定日期的上班總人數 (嚴格固定 7 人邏輯)
 function getWorkCountForDay(d) {
   const monthKey = getMonthKey();
   let workCount = 0;
 
-  // 1. 計算 7 位指定預設上班人員
+  // 1. 計算 7 位指定預設上班人員 (沒休即 +1)
   coreWorkStaffs.forEach(name => {
     const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
     if (val !== '休') {
@@ -968,7 +968,7 @@ function getWorkCountForDay(d) {
     }
   });
 
-  // 2. 謝嘉昌、禹伯海、經理、阿明、曉芳
+  // 2. 謝嘉昌、禹伯海、經理、阿明、曉芳 (特定手動選擇才 +1)
   const otherStaffs = ["謝嘉昌", "禹伯海", "經理", "阿明", "曉芳"];
   otherStaffs.forEach(name => {
     const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
