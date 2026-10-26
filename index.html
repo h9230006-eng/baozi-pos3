@@ -863,10 +863,11 @@ function initTable() {
         if (staff.type === 'aming') shiftsOptions = amingShifts;
         else if (staff.type === 'hsiaofang') shiftsOptions = hsiaofangShifts;
         else if (staff.type === 'manager') shiftsOptions = managerShifts;
-        else if (staff.type === 'awen') shiftsOptions = awenShifts;
+        else if (staff.type === 'awen' || staff.name === '阿文') shiftsOptions = awenShifts;
         else if (staff.name === '全明正' || staff.name === '吳駿毅') shiftsOptions = faShifts;
 
         let idx = shiftsOptions.indexOf(val);
+        if (idx === -1) idx = 0;
         newVal = shiftsOptions[(idx + 1) % shiftsOptions.length];
 
         if (staff.enableLimits && (newVal === '休' || newVal === '支援')) {
