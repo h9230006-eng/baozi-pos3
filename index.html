@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -109,6 +108,7 @@ body {
 .btn-rule { background: #d97706; color: white; }
 .btn-add { background: #059669; color: white; }
 .btn-export { background: #b45309; color: white; }
+.btn-clear { background: #dc2626; color: white; }
 
 .notice-box {
   background: #fef3c7;
@@ -562,7 +562,7 @@ th.col-sticky {
 
 <div class="card">
   <h1>🏠 苗栗店 - 麥德加專業饅頭</h1>
-  <div class="subtitle">智慧輪休排班與人力檢核系統</div>
+  <div class="subtitle">智慧輪休排班與人力檢核系統（具備自動儲存功能）</div>
   
   <div class="date-selector">
     民國 
@@ -582,11 +582,12 @@ th.col-sticky {
     <button class="btn btn-rule" onclick="openRuleModal()">⚙️ 排假規則設定</button>
     <button class="btn btn-add" onclick="addNewStaff()">➕ 新增人員</button>
     <button class="btn btn-export" onclick="shareOrExport()">📥 匯出/列印</button>
+    <button class="btn btn-clear" onclick="clearCurrentMonthData()">🗑️ 清除本月排班</button>
   </div>
 </div>
 
 <div class="notice-box">
-  💡 <b>操作說明</b>：點擊人員姓名旁的<b>「🔍可休」</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>（再點一次按鈕或點其他人即可關閉）。點擊格子可切換班別（阿文包含「送貨」班別）。
+  💡 <b>操作說明</b>：點擊人員姓名旁的<b>🔍可休</b>按鈕，該員工可安心排休的空白格會顯示 <b>"O"</b>。資料會**自動儲存**於瀏覽器中，重新整理也不會遺失！
 </div>
 
 <div style="margin-bottom: 8px; font-weight: bold; color: #6e3a1e;">
@@ -673,7 +674,7 @@ th.col-sticky {
 </div>
 
 <script>
-let staffList = [
+const DEFAULT_STAFF_LIST = [
   { name: "全明正", type: "normal", minRest: 0, maxRest: 0, enableLimits: true },
   { name: "吳駿毅", type: "ramen", minRest: 0, maxRest: 0, enableLimits: true },
   { name: "阿文", type: "awen", minRest: 0, maxRest: 0, enableLimits: true },
@@ -688,16 +689,20 @@ let staffList = [
   { name: "阿燁", type: "normal", minRest: 0, maxRest: 0, enableLimits: true }
 ];
 
-// 指定基礎上班人員清單 (嚴格精準固定 7 位)
-const coreWorkStaffs = ["全明正", "吳駿毅", "阿文", "鐘孝謙", "阿勳", "阿志", "阿燁"];
-
-let mutexRules = [
+const DEFAULT_MUTEX_RULES = [
   { a: "全明正", b: "吳駿毅" },
   { a: "鐘孝謙", b: "謝嘉昌" },
   { a: "阿文", b: "阿勳" }
 ];
 
-let scheduleData = {};
+// 從 localStorage 讀取或初始化
+let staffList = JSON.parse(localStorage.getItem('maidajia_staffList')) || JSON.parse(JSON.stringify(DEFAULT_STAFF_LIST));
+let mutexRules = JSON.parse(localStorage.getItem('maidajia_mutexRules')) || JSON.parse(JSON.stringify(DEFAULT_MUTEX_RULES));
+let scheduleData = JSON.parse(localStorage.getItem('maidajia_scheduleData')) || {};
+
+// 指定基礎上班人員清單 (嚴格精準固定 7 位)
+const coreWorkStaffs = ["全明正", "吳駿毅", "阿文", "鐘孝謙", "阿勳", "阿志", "阿燁"];
+
 let cellElements = {}; 
 let btnElements = {};
 let activeHighlightedStaff = null;
@@ -718,7 +723,15 @@ function showToast(msg) {
   setTimeout(() => { t.style.opacity = '0'; }, 2000);
 }
 
+// 儲存資料至 LocalStorage
+function saveDataToStorage() {
+  localStorage.setItem('maidajia_staffList', JSON.stringify(staffList));
+  localStorage.setItem('maidajia_mutexRules', JSON.stringify(mutexRules));
+  localStorage.setItem('maidajia_scheduleData', JSON.stringify(scheduleData));
+}
+
 window.onload = function() {
+  updateTitle();
   initTable();
   renderRulesModal();
   runAudit();
@@ -885,6 +898,7 @@ function initTable() {
         }
 
         scheduleData[monthKey][staff.name][d] = newVal;
+        saveDataToStorage();
         refreshTableStyles();
         runAudit();
       };
@@ -955,12 +969,10 @@ function initSummary() {
   tableFoot.appendChild(trWork);
 }
 
-// 取得特定日期的上班總人數 (嚴格固定 7 人邏輯)
 function getWorkCountForDay(d) {
   const monthKey = getMonthKey();
   let workCount = 0;
 
-  // 1. 計算 7 位指定預設上班人員 (沒休即 +1)
   coreWorkStaffs.forEach(name => {
     const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
     if (val !== '休') {
@@ -968,7 +980,6 @@ function getWorkCountForDay(d) {
     }
   });
 
-  // 2. 謝嘉昌、禹伯海、經理、阿明、曉芳 (特定手動選擇才 +1)
   const otherStaffs = ["謝嘉昌", "禹伯海", "經理", "阿明", "曉芳"];
   otherStaffs.forEach(name => {
     const val = (scheduleData[monthKey] && scheduleData[monthKey][name]) ? scheduleData[monthKey][name][d] : "";
@@ -1329,6 +1340,7 @@ function addMutex() {
     return;
   }
   mutexRules.push({ a, b });
+  saveDataToStorage();
   renderRulesModal();
   refreshTableStyles();
   runAudit();
@@ -1336,6 +1348,7 @@ function addMutex() {
 
 function removeMutex(idx) {
   mutexRules.splice(idx, 1);
+  saveDataToStorage();
   renderRulesModal();
   refreshTableStyles();
   runAudit();
@@ -1358,6 +1371,7 @@ function saveRules() {
     s.maxRest = maxVal;
   });
 
+  saveDataToStorage();
   closeRuleModal();
   refreshTableStyles();
   runAudit();
@@ -1368,8 +1382,26 @@ function addNewStaff() {
   const name = prompt("請輸入新人員姓名：");
   if (name && name.trim() !== '') {
     staffList.push({ name: name.trim(), type: "normal", minRest: 0, maxRest: 0, enableLimits: true });
+    saveDataToStorage();
     initTable();
     runAudit();
+  }
+}
+
+// 清除目前月份排班資料
+function clearCurrentMonthData() {
+  const monthKey = getMonthKey();
+  const year = document.getElementById('displayYear').innerText;
+  const month = document.getElementById('displayMonth').innerText;
+  
+  if (confirm(`確定要清除 ${year} 年 ${month} 月的所有排班資料嗎？`)) {
+    if (scheduleData[monthKey]) {
+      scheduleData[monthKey] = {};
+    }
+    saveDataToStorage();
+    initTable();
+    runAudit();
+    showToast(`🗑️ ${year} 年 ${month} 月排班已清除！`);
   }
 }
 
@@ -1446,4 +1478,3 @@ function downloadPDF() {
 </script>
 </body>
 </html>
-```
